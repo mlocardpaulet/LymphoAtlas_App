@@ -45,14 +45,30 @@ ui <- fluidPage(
       #             selected = NULL,
       #             multiple = FALSE,
       #             selectize = TRUE)#,
-      selectizeInput("psite",
-                  "Phosphorylation site of interest:",
-                  choices = sort(as.character(export$GeneID)),
-                  selected = "Cd3e_Y170",
-                  multiple = FALSE)#,
-      # bsTooltip("psite", 
-      #           "Select which phosphorylation site to plot",
-      #           "right")
+      # Select the protein of interest:
+      #################################
+      selectizeInput("protein",
+                     "Protein of interest:",
+                     choices = sort(as.character(export$Accession)),
+                     selected = NA,
+                     multiple = FALSE),
+      # Once the protein of interest is selected, select one or all the sites of the protein:
+      #################################
+      checkboxInput("allSites", "Show all the sites of the selected protein", FALSE), 
+      conditionalPanel(condition = "input.allSites==false",
+                       selectizeInput("psite",
+                                      "Phosphorylation site of interest:",
+                                      choices = sort(as.character(export$GeneID)),
+                                      selected = "Cd3e_Y170",
+                                      multiple = FALSE)#,
+                       # bsTooltip("psite", 
+                       #           "Select which phosphorylation site to plot",
+                       #           "right")
+      ),
+      # Buttons for download:
+      downloadButton("Download", "Download .pdf"),
+      downloadButton("Download1", "Download .png"),
+      downloadButton("Download2", "Download .svg")
     ),
     
     # Show a plot
@@ -63,7 +79,7 @@ ui <- fluidPage(
   # Footer
   tabsetPanel(
     tabPanel(
-      HTML('<footer><font size="0.8">copyright 2017 - CNRS - All rights reserved - LymphoAtlas V1.0</font></footer>')
+      HTML('<footer><font size="0.8">copyright 2018 - CNRS - All rights reserved - LymphoAtlas V1.0</font></footer>')
     )
   )
 )
