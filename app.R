@@ -30,8 +30,30 @@ export$GeneNames <- sapply(export$GeneID, function(x) {
   strsplit(x, "_", fixed = T)[[1]][1]
 })
 
-coloursLines <- c("blue4", "deepskyblue4", "lightseagreen", "mediumspringgreen")
-options(max.print=nrow(export))
+# Colour scales for the different clusters:
+# coloursLines <- c("blue4", "deepskyblue4", "lightseagreen", "mediumspringgreen")
+colClusters <- colorRampPalette(c("#9E0142", "#D53E4F", "#F46D43", "#FDAE61", "#ABDDA4", "#66C2A5", "#3288BD", "#5E4FA2", "darkblue", "black"))(12)
+collight <- as.character(
+  sapply(colClusters, function(x) {
+    colorRampPalette(c("white", x))(10)[5]
+  })
+)
+matriceColours <- cbind("dark" = colClusters, "light" = collight, "cluster" = 1:12)
+matriceColours <- rbind(matriceColours, c("grey30", "grey70", "NA"))
+
+colorcodes <- paste0(rep(matriceColours[,3], each = 4), rep(c(" R1", " R3", " R4", " R5"), nrow(matriceColours)))
+colorcodes <- paste0("Cluster ", colorcodes)
+colorcodes <- gsub("Cluster NA", "Not regulated", colorcodes, fixed = T)
+i <- 1
+j <- 1
+colrep <- vector()
+while (i <= nrow(matriceColours)) {
+  colrep[j:(j+3)] <- colorRampPalette(c(matriceColours[i,2], matriceColours[i,1]))(4)
+  i <- i + 1
+  j <- j + 4
+}
+matriceColours2 <- data.frame("colorcodes" = colorcodes, "value" = colrep)
+
 
 # App:
 ############################################################################
@@ -45,6 +67,7 @@ ui <- fluidPage(
   # Sidebar with a slider input for the phosphorylation site of interest: 
   sidebarLayout(
     sidebarPanel(
+      #################################
       # Select the protein of interest:
       #################################
       selectizeInput("protein",
@@ -55,6 +78,7 @@ ui <- fluidPage(
       bsTooltip("protein", 
                 "If the list of proteins to select does not include your protein of interest, enter it in the selection box.",
                 "right"),
+      #################################
       # Once the protein of interest is selected, select one or all the sites of the protein:
       #################################
       checkboxInput("allSites", "Show all the sites of the selected protein", FALSE), 
@@ -67,6 +91,14 @@ ui <- fluidPage(
                        # bsTooltip("psite", 
                        #           "Select which phosphorylation site to plot",
                        #           "right")
+      ),
+      conditionalPanel(condition = "input.allSites==true",
+                       checkboxInput("fixedAxis",
+                                     "Unfix the y-axis",
+                                     FALSE),
+                       bsTooltip("fixedAxis",
+                                 "Check if you want the y-axis to be free",
+                                 "right")
       ),
       # Buttons for download:
       downloadButton("Download", "Download .pdf"),
@@ -84,8 +116,8 @@ ui <- fluidPage(
     ),
     
     # Show a plot
-    mainPanel(
-      plotlyOutput("psiteplot")
+    mainPanel(width = 8,
+              plotlyOutput("psiteplot")
     )
   ),
   # Footer
@@ -170,6 +202,9 @@ server <- function(session, input, output, clientData) {
           strsplit(x, "_", fixed = T)[[1]][1]
         })
         gtab$TimePoint <- as.numeric(as.character(gtab$TimePoint))
+        gtab$Cluster <- as.character(export$ClusterMerged[match(gtab$phosphosite, export$GeneID)])
+        gtab$colorgroup <- paste0("Cluster ", gtab$Cluster, " ", gtab$Replicate)
+        gtab$colorgroup <- gsub("Cluster NA", "Not regulated", gtab$colorgroup, fixed = T)
         gtab <- gtab[!is.na(gtab$value),]
       } else {
         if (is.null(psite2())) {
@@ -179,6 +214,7 @@ server <- function(session, input, output, clientData) {
           cols <- which(grepl("MeanLoops", names(export)))
           gtab <- export[export$GeneID %in% psite2(),cols]
           names(gtab) <- gsub("MeanLoops_", "", names(gtab), fixed = T)
+          gtab$phosphosite <- export$GeneID[export$GeneID %in% psite2()]
           gtab <- melt(gtab)
           validate (
             need(length(gtab$value[!is.na(gtab$value)]) > 0, "Select a phosphorylation site of interest")
@@ -197,6 +233,9 @@ server <- function(session, input, output, clientData) {
             strsplit(x, "_", fixed = T)[[1]][1]
           })
           gtab$TimePoint <- as.numeric(as.character(gtab$TimePoint))
+          gtab$Cluster <- as.character(export$ClusterMerged[match(gtab$phosphosite, export$GeneID)])
+          gtab$colorgroup <-  paste0("Cluster ", gtab$Cluster, " ", gtab$Replicate)
+          gtab$colorgroup <- gsub("Cluster NA", "Not regulated", gtab$colorgroup, fixed = T)
           gtab <- gtab[!is.na(gtab$value),]
         }
       }
@@ -213,14 +252,34 @@ server <- function(session, input, output, clientData) {
       # If allSites is checked: plot all the sites for the protein selected:
       #########################
       if (input$allSites) {
-        g <- ggplot(gtab, aes(x = TimePoint, y = value)) + geom_line(aes(x = TimePoint, y = value, group = Replicate, col = Replicate), size = 1.2) + geom_vline(xintercept = 0, size = 1.2) + geom_point(col = "black", shape = "+", size = 4, alpha = 0.8) + theme_minimal() + ggtitle(paste0("Sites of ", input$protein, " upon TCR activation")) + scale_color_manual(values = coloursLines[seq_along(unique(gtab$Replicate))]) + ylab("log2-transformed normalised MS intensities") + xlab("Time after stimulation (in seconds)") + facet_wrap(~phosphosite)# + geom_boxplot(aes(x = TimePoint, y = value), width = 0.5)
+        g <- ggplot(gtab, aes(x = TimePoint, y = value)) +
+          geom_line(aes(x = TimePoint, y = value, group = Replicate, col = colorgroup), size = 1.2) +
+          geom_vline(xintercept = 0, size = 1.2) +
+          geom_point(col = "black", shape = "+", size = 4, alpha = 0.8) +
+          theme_minimal() + ggtitle(paste0("Sites of ", input$protein, " upon TCR activation")) +
+          scale_color_manual(values = as.character(matriceColours2$value[match(sort(unique(gtab$colorgroup)), matriceColours2$colorcodes)]), name = "Cluster and\nbiological repeat") +
+          ylab("log2-transformed normalised MS intensities") +
+          xlab("Time after stimulation (in seconds)")
+        if (input$fixedAxis == FALSE) {
+          g <- g + facet_wrap(~phosphosite) 
+        } else {
+          g <- g + facet_wrap(~phosphosite, scales = "free_y") 
+        }
+        
         # If allSites is notchecked: plot all the sites for the protein selected:
         #########################
       } else {
         if (is.null(psite2())) {
           return(NULL)
         } else {
-          g <- ggplot(gtab, aes(x = TimePoint, y = value)) + geom_line(aes(x = TimePoint, y = value, group = Replicate, col = Replicate), size = 1.2) + geom_vline(xintercept = 0, size = 1.2) + geom_point(col = "black", shape = "+", size = 5, alpha = 0.8) + theme_minimal() + ggtitle(paste0(psite2(), " upon TCR activation")) + scale_color_manual(values = coloursLines[seq_along(unique(gtab$Replicate))]) + ylab("log2-transformed normalised MS intensities") + xlab("Time after stimulation (in seconds)") # + geom_boxplot(aes(x = TimePoint, y = value), width = 0.5)
+          g <- ggplot(gtab, aes(x = TimePoint, y = value)) +
+            geom_line(aes(x = TimePoint, y = value, group = Replicate, col = Replicate), size = 1.2) +
+            geom_vline(xintercept = 0, size = 1.2) +
+            geom_point(col = "black", shape = "+", size = 5, alpha = 0.8) +
+            theme_minimal() + ggtitle(paste0(psite2(), " upon TCR activation")) +
+            scale_color_manual(values = as.character(unique(matriceColours2$value[match(gtab$colorgroup, matriceColours2$colorcodes)])), name = "Replicate") + 
+            ylab("log2-transformed normalised MS intensities") +
+            xlab("Time after stimulation (in seconds)") 
         }
       }
       return(g)
@@ -229,7 +288,8 @@ server <- function(session, input, output, clientData) {
   output$psiteplot <- renderPlotly({
     p <- plotInput()
     ggplotly(p, height = 600) %>%
-      config(displayModeBar = F)
+      config(displayModeBar = F)%>%
+      layout(margin = list(l = 110, b = 40, r = 40, t = 110, pad = -2))
   })
   
   # For export:
@@ -245,20 +305,66 @@ server <- function(session, input, output, clientData) {
         lg <- list()
         ylimplot <- range(gtab$value)
         for (el in unique(gtab$phosphosite)) {
-          g <- ggplot(gtab[gtab$phosphosite %in% el,], aes(x = TimePoint, y = value)) + geom_line(aes(x = TimePoint, y = value, group = Replicate, col = Replicate), size = 1.2) + geom_vline(xintercept = 0, size = 1.2) + geom_point(col = "black", shape = "+", size = 4, alpha = 0.8) + theme_minimal() + ggtitle(paste0(el, " upon TCR activation")) + scale_color_manual(values = coloursLines[seq_along(unique(gtab$Replicate))]) + ylab("log2-transformed normalised MS intensities") + xlab("Time after stimulation (in seconds)") + ylim(ylimplot) # + geom_boxplot(aes(x = TimePoint, y = value), width = 0.5)
+          gtab2 <- gtab[gtab$phosphosite %in% el,]
+          gtab2$Cluster[is.na(gtab2$Cluster)] <- "NA"
+          g <- ggplot(gtab2, aes(x = TimePoint, y = value))  +
+            geom_line(aes(x = TimePoint, y = value, group = colorgroup, col = colorgroup), size = 1.2) +
+            geom_vline(xintercept = 0, size = 1.2) +
+            geom_point(col = "black", shape = "+", size = 4, alpha = 0.8) +
+            theme_minimal() + ggtitle(paste0(el, " upon TCR activation")) +
+            ylab("log2-transformed normalised MS intensities") +
+            xlab("Time after stimulation (in seconds)")
+          if (input$fixedAxis == FALSE) {
+            g <- g + ylim(ylimplot)
+          } 
+          # I choose the colours later.
           lg[[length(lg) + 1]] <- g
         }
-        # If allSites is notchecked: plot all the sites for the protein selected:
+        # If allSites is not checked: 
         #########################
       } else {
         if (is.null(psite2())) {
           return(NULL)
         } else {
-          g <- ggplot(gtab, aes(x = TimePoint, y = value)) + geom_line(aes(x = TimePoint, y = value, group = Replicate, col = Replicate), size = 1.2) + geom_vline(xintercept = 0, size = 1.2) + geom_point(col = "black", shape = "+", size = 5, alpha = 0.8) + theme_minimal() + ggtitle(paste0(psite2(), " upon TCR activation")) + scale_color_manual(values = coloursLines[seq_along(unique(gtab$Replicate))]) + ylab("log2-transformed normalised MS intensities") + xlab("Time after stimulation (in seconds)") # + geom_boxplot(aes(x = TimePoint, y = value), width = 0.5)
+          g <- ggplot(gtab, aes(x = TimePoint, y = value)) +
+            geom_line(aes(x = TimePoint, y = value, group = Replicate, col = Replicate), size = 1.2) +
+            geom_vline(xintercept = 0, size = 1.2) +
+            geom_point(col = "black", shape = "+", size = 5, alpha = 0.8) +
+            theme_minimal() +
+            ggtitle(paste0(psite2(), " upon TCR activation")) +
+            ylab("log2-transformed normalised MS intensities") +
+            xlab("Time after stimulation (in seconds)")  # I choose the colours later.
           lg <- list(g)
         }
       }
       return(lg)
+    }
+  }
+  # Colour scales for download:
+  loopcolourvalue <- function(){
+    if (is.null(plotTable())) {
+      return(NULL)
+    } else {
+      gtab <- plotTable()
+      # If allSites is checked: plot all the sites for the protein selected:
+      #########################
+      if (input$allSites) {
+        colourval <- list()
+        for (el in unique(gtab$phosphosite)) {
+          gtab2 <- gtab[gtab$phosphosite %in% el,]
+          gtab2$Cluster[is.na(gtab2$Cluster)] <- "NA"
+          colourval[[length(colourval) + 1]] <- as.character(unique(matriceColours2$value[match(sort(gtab2$colorgroup[gtab2$phosphosite %in% el]), matriceColours2$colorcodes)]))
+        }
+        # If allSites is not checked: 
+        #########################
+      } else {
+        if (is.null(psite2())) {
+          return(NULL)
+        } else {
+          colourval[[length(colourval) + 1]] <- as.character(unique(matriceColours2$value[match(sort(gtab$colorgroup), matriceColours2$colorcodes)]))
+        }
+      }
+      return(colourval)
     }
   }
   # pdf output:
@@ -276,8 +382,15 @@ server <- function(session, input, output, clientData) {
     },
     content = function(file) {
       pdf(file, width = 8.5, height = 6.5)
-      for (plot in plotInputExport()) {
-       print(plot) 
+      if (input$allSites) {
+        for (iterplot in seq_along(plotInputExport())) {
+          loopcolval <- loopcolourvalue()[[iterplot]]
+          toplot <- plotInputExport()[[iterplot]]
+          toplot <- toplot + scale_color_manual(values = loopcolval, name = "Cluster and\nbiological repeat") 
+          print(toplot) 
+        }
+      } else {
+        print(plotInput())
       }
       dev.off()
     })
@@ -296,7 +409,7 @@ server <- function(session, input, output, clientData) {
     },
     content = function(file) {
       device <- function(..., width, height) {
-        grDevices::png(..., width = 1000, height = 800, res = 120)
+        grDevices::png(..., width = 1000, height = 800, res = 200)
       }
       ggsave(file, plot = plotInput(), device = device)
     })
