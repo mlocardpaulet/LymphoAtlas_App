@@ -239,6 +239,8 @@ server <- function(session, input, output, clientData) {
         gtab$colorgroup <- paste0("Cluster ", gtab$Cluster, " ", gtab$Replicate)
         gtab$colorgroup <- gsub("Cluster NA", "Not regulated", gtab$colorgroup, fixed = T)
         #gtab <- gtab[!is.na(gtab$value),]
+        gtab <- gtab[order(gtab$variable),]
+        gtab <- gtab[order(gtab$phosphosite),]
         # Remove chunk of NA data:
         i <- 1
         vec <- gtab$value
@@ -366,6 +368,7 @@ server <- function(session, input, output, clientData) {
         for (el in unique(gtab$phosphosite)) {
           gtab2 <- gtab[gtab$phosphosite %in% el,]
           gtab2$Cluster[is.na(gtab2$Cluster)] <- "NA"
+          
           g <- ggplot(gtab2, aes(x = TimePoint, y = value))  +
             geom_line(aes(x = TimePoint, y = value, group = colorgroup, col = colorgroup), size = 1.2) +
             geom_vline(xintercept = 0, size = 1.2) +
