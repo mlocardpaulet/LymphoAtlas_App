@@ -238,7 +238,20 @@ server <- function(session, input, output, clientData) {
         gtab$Cluster <- as.character(export$ClusterMerged[match(gtab$phosphosite, export$GeneID)])
         gtab$colorgroup <- paste0("Cluster ", gtab$Cluster, " ", gtab$Replicate)
         gtab$colorgroup <- gsub("Cluster NA", "Not regulated", gtab$colorgroup, fixed = T)
-        gtab <- gtab[!is.na(gtab$value),]
+        #gtab <- gtab[!is.na(gtab$value),]
+        # Remove chunk of NA data:
+        i <- 1
+        vec <- gtab$value
+        vec[is.na(vec)] <- 0
+        toremove <- vector()
+        while (i <= nrow(gtab)) {
+          val <- sum(vec[i:(i+5)])
+          if (val == 0) {
+            toremove <- c(toremove, c(i:(i+5)))
+          }
+          i <- i + 6
+        }
+        gtab <- gtab[-toremove,]
       } else {
         if (is.null(psite2())) {
           return(NULL)
@@ -269,7 +282,20 @@ server <- function(session, input, output, clientData) {
           gtab$Cluster <- as.character(export$ClusterMerged[match(gtab$phosphosite, export$GeneID)])
           gtab$colorgroup <-  paste0("Cluster ", gtab$Cluster, " ", gtab$Replicate)
           gtab$colorgroup <- gsub("Cluster NA", "Not regulated", gtab$colorgroup, fixed = T)
-          gtab <- gtab[!is.na(gtab$value),]
+          #gtab <- gtab[!is.na(gtab$value),]
+          # Remove chunk of NA data:
+          i <- 1
+          vec <- gtab$value
+          vec[is.na(vec)] <- 0
+          toremove <- vector()
+          while (i <= nrow(gtab)) {
+            val <- sum(vec[i:(i+5)])
+            if (val == 0) {
+              toremove <- c(toremove, c(i:(i+5)))
+            }
+            i <- i + 6
+          }
+          gtab <- gtab[-toremove,]
         }
       }
       return(gtab)
