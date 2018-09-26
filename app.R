@@ -94,7 +94,7 @@ ui <- fluidPage(
       ),
       conditionalPanel(condition = "input.allSites==true",
                        checkboxInput("fixedAxis",
-                                     "Unfix the y-axis",
+                                     "Free the y-axis",
                                      FALSE),
                        bsTooltip("fixedAxis",
                                  "Check if you want the y-axis to be free",
@@ -263,7 +263,7 @@ server <- function(session, input, output, clientData) {
         if (input$fixedAxis == FALSE) {
           g <- g + facet_wrap(~phosphosite) 
         } else {
-          g <- g + facet_wrap(~phosphosite, scales = "free_y") 
+          g <- g + facet_wrap(~phosphosite, scales = "free_y", shrink = FALSE) 
         }
         
         # If allSites is notchecked: plot all the sites for the protein selected:
