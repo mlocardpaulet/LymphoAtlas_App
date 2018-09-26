@@ -24,6 +24,10 @@ library(plotly)
 # Import data:
 ############################################################################
 load("DataLymphoAtlas/12_PhosphoTableWithProteinWaring.RData")
+export$GeneNames <- sapply(export$GeneID, function(x) {
+  strsplit(x, "_", fixed = T)[[1]][1]
+})
+
 coloursLines <- c("blue4", "deepskyblue4", "lightseagreen", "mediumspringgreen")
 options(max.print=nrow(export))
 
@@ -39,27 +43,24 @@ ui <- fluidPage(
   # Sidebar with a slider input for the phosphorylation site of interest: 
   sidebarLayout(
     sidebarPanel(
-      # selectInput("psite",
-      #             "Phosphorylation site of interest:",
-      #             choices = sort(as.character(export$GeneID)),
-      #             selected = NULL,
-      #             multiple = FALSE,
-      #             selectize = TRUE)#,
       # Select the protein of interest:
       #################################
       selectizeInput("protein",
                      "Protein of interest:",
-                     choices = sort(as.character(export$Accession)),
-                     selected = NA,
+                     choices = sort(unique(paste0(export$GeneNames, " / ", export$Accession))),
+                     selected = "Zap70 / P43404",
                      multiple = FALSE),
+      bsTooltip("protein", 
+                "If the list of proteins to select does not include your protein of interest, enter it in the selection box.",
+                "right"),
       # Once the protein of interest is selected, select one or all the sites of the protein:
       #################################
       checkboxInput("allSites", "Show all the sites of the selected protein", FALSE), 
       conditionalPanel(condition = "input.allSites==false",
                        selectizeInput("psite",
                                       "Phosphorylation site of interest:",
-                                      choices = sort(as.character(export$GeneID)),
-                                      selected = "Cd3e_Y170",
+                                      choices = NULL,
+                                      selected = NULL,
                                       multiple = FALSE)#,
                        # bsTooltip("psite", 
                        #           "Select which phosphorylation site to plot",
@@ -88,44 +89,118 @@ ui <- fluidPage(
 ## Server:
 ############################################################################
 
-server <- function(input, output) {
-  psite2 <- reactive({
-    if (is.null(input$psite)) {
+server <- function(session, input, output) {
+  # Define protein:
+  #################
+  prot2 <- reactive({
+    if (is.null(input$protein)) {
       return(NULL)
     } else {
-      return(input$psite)
+      res <- input$protein
+      res <- sapply(res, function(x) {
+        strsplit(x, " / ", fixed = T)[[1]][2]
+      })
+      return(res)
     }
   })
+  # Update the field of the psite selection:
+  #################
+  observe({
+    if (!is.null(prot2())) {
+      updateSelectizeInput(session, "psite",
+                           "Phosphorylation site of interest:",
+                           choices = sort(as.character(export$GeneID[export$Accession == prot2()])),
+                           selected = NULL)
+    }
+  })
+  # If the checkbox "allSites" is checked, plot all the sites of the protein, else, plot only the one selected in the field "psite":
+  #################
+  psite2 <- reactive({
+    if (input$allSites) {
+      res <- export$phosphoSites[export$Accession == prot2()]
+      return(res)
+    } else {
+      if (is.null(input$psite)) {
+        return(NULL)
+      } else {
+        return(input$psite)
+      }
+    }
+  })
+  # Make the plot:
+  ################
   output$psiteplot <- renderPlotly({
-    # Table preparation:
-    cols <- which(grepl("MeanLoops", names(export)))
-    gtab <- export[export$GeneID %in% psite2(),cols]
-    names(gtab) <- gsub("MeanLoops_", "", names(gtab), fixed = T)
-    gtab <- melt(gtab)
-    
-    validate (
-      need(length(gtab$value[!is.na(gtab$value)]) > 0, "Not enough quantification values for this phosphorylation site in the data set.")
-    )
-    gtab$variable <- as.character(gtab$variable)
-    gtab$TimePoint <- sapply(gtab$variable, function(x) {
-      strsplit(x, "_", fixed = T)[[1]][3]
-    })
-    gtab$TimePoint[grepl("NS.", gtab$TimePoint)] <- 0 
-    gtab$TimePoint[grepl("S30.", gtab$TimePoint, fixed = T)] <- 30 
-    gtab$TimePoint[grepl("S15.", gtab$TimePoint, fixed = T)] <- 15 
-    gtab$TimePoint[grepl("S120.", gtab$TimePoint, fixed = T)] <- 120 
-    gtab$TimePoint[grepl("S300.", gtab$TimePoint, fixed = T)] <- 300 
-    gtab$TimePoint[grepl("S600", gtab$TimePoint, fixed = T)] <- 600 
-    gtab$Replicate <- sapply(gtab$variable, function(x) {
-      strsplit(x, "_", fixed = T)[[1]][1]
-    })
-    gtab$TimePoint <- as.numeric(as.character(gtab$TimePoint))
-    gtab <- gtab[!is.na(gtab$value),]
-    
-    g <- ggplot(gtab, aes(x = TimePoint, y = value)) + geom_line(aes(x = TimePoint, y = value, group = Replicate, col = Replicate), size = 1.2) + geom_vline(xintercept = 0, size = 1.2) + geom_point(col = "black", shape = "+", size = 5, alpha = 0.8) + theme_minimal() + ggtitle(paste0(psite2(), " upon TCR activation")) + scale_color_manual(values = coloursLines[seq_along(unique(gtab$Replicate))]) + ylab("log2-transformed normalised MS intensities") + xlab("Time after stimulation (in seconds)") # + geom_boxplot(aes(x = TimePoint, y = value), width = 0.5)
-    p <- ggplotly(g, height = 600) %>%
-      config(displayModeBar = F)
-    p
+    if (is.null(prot2())) {
+      return(NULL)
+    } else {
+      # If allSites is checked: plot all the sites for the protein selected:
+      #########################
+      if (input$allSites) {
+        # Table preparation:
+        cols <- which(grepl("MeanLoops", names(export)))
+        gtab <- export[export$Accession %in% prot2(),cols]
+        names(gtab) <- gsub("MeanLoops_", "", names(gtab), fixed = T)
+        gtab <- melt(gtab)
+        gtab$phosphosite <- export$GeneID[export$Accession %in% prot2()]
+        validate (
+          need(length(gtab$value[!is.na(gtab$value)]) > 0, "Select phosphorylation sites of interest")
+        )
+        gtab$variable <- as.character(gtab$variable)
+        gtab$TimePoint <- sapply(gtab$variable, function(x) {
+          strsplit(x, "_", fixed = T)[[1]][3]
+        })
+        gtab$TimePoint[grepl("NS.", gtab$TimePoint)] <- 0 
+        gtab$TimePoint[grepl("S30.", gtab$TimePoint, fixed = T)] <- 30 
+        gtab$TimePoint[grepl("S15.", gtab$TimePoint, fixed = T)] <- 15 
+        gtab$TimePoint[grepl("S120.", gtab$TimePoint, fixed = T)] <- 120 
+        gtab$TimePoint[grepl("S300.", gtab$TimePoint, fixed = T)] <- 300 
+        gtab$TimePoint[grepl("S600", gtab$TimePoint, fixed = T)] <- 600 
+        gtab$Replicate <- sapply(gtab$variable, function(x) {
+          strsplit(x, "_", fixed = T)[[1]][1]
+        })
+        gtab$TimePoint <- as.numeric(as.character(gtab$TimePoint))
+        gtab <- gtab[!is.na(gtab$value),]
+        
+        g <- ggplot(gtab, aes(x = TimePoint, y = value)) + geom_line(aes(x = TimePoint, y = value, group = Replicate, col = Replicate), size = 1.2) + geom_vline(xintercept = 0, size = 1.2) + geom_point(col = "black", shape = "+", size = 4, alpha = 0.8) + theme_minimal() + ggtitle(paste0("Sites of ", input$protein, " upon TCR activation")) + scale_color_manual(values = coloursLines[seq_along(unique(gtab$Replicate))]) + ylab("log2-transformed normalised MS intensities") + xlab("Time after stimulation (in seconds)") + facet_wrap(.~phosphosite)# + geom_boxplot(aes(x = TimePoint, y = value), width = 0.5)
+        p <- ggplotly(g, height = 800) %>%
+          config(displayModeBar = F)
+        # If allSites is notchecked: plot all the sites for the protein selected:
+        #########################
+      } else {
+        if (is.null(psite2())) {
+          return(NULL)
+        } else {
+          # Table preparation:
+          cols <- which(grepl("MeanLoops", names(export)))
+          gtab <- export[export$GeneID %in% psite2(),cols]
+          names(gtab) <- gsub("MeanLoops_", "", names(gtab), fixed = T)
+          gtab <- melt(gtab)
+          validate (
+            need(length(gtab$value[!is.na(gtab$value)]) > 0, "Select a phosphorylation site of interest")
+          )
+          gtab$variable <- as.character(gtab$variable)
+          gtab$TimePoint <- sapply(gtab$variable, function(x) {
+            strsplit(x, "_", fixed = T)[[1]][3]
+          })
+          gtab$TimePoint[grepl("NS.", gtab$TimePoint)] <- 0 
+          gtab$TimePoint[grepl("S30.", gtab$TimePoint, fixed = T)] <- 30 
+          gtab$TimePoint[grepl("S15.", gtab$TimePoint, fixed = T)] <- 15 
+          gtab$TimePoint[grepl("S120.", gtab$TimePoint, fixed = T)] <- 120 
+          gtab$TimePoint[grepl("S300.", gtab$TimePoint, fixed = T)] <- 300 
+          gtab$TimePoint[grepl("S600", gtab$TimePoint, fixed = T)] <- 600 
+          gtab$Replicate <- sapply(gtab$variable, function(x) {
+            strsplit(x, "_", fixed = T)[[1]][1]
+          })
+          gtab$TimePoint <- as.numeric(as.character(gtab$TimePoint))
+          gtab <- gtab[!is.na(gtab$value),]
+          
+          g <- ggplot(gtab, aes(x = TimePoint, y = value)) + geom_line(aes(x = TimePoint, y = value, group = Replicate, col = Replicate), size = 1.2) + geom_vline(xintercept = 0, size = 1.2) + geom_point(col = "black", shape = "+", size = 5, alpha = 0.8) + theme_minimal() + ggtitle(paste0(psite2(), " upon TCR activation")) + scale_color_manual(values = coloursLines[seq_along(unique(gtab$Replicate))]) + ylab("log2-transformed normalised MS intensities") + xlab("Time after stimulation (in seconds)") # + geom_boxplot(aes(x = TimePoint, y = value), width = 0.5)
+          p <- ggplotly(g, height = 600) %>%
+            config(displayModeBar = F)
+        }
+      }
+      return(p)
+    }
   })
 }
 
