@@ -154,8 +154,15 @@ ui <- fluidPage(
 ############################################################################
 
 server <- function(session, input, output, clientData) {
-  # Define protein:
-  #################
+  # 
+  ChekAllSites <- reactive({
+    if (input$SearchMode == "kinetics") {
+      return(FALSE)
+    } else {
+      return(input$allSites)
+    }
+  })
+  # Define protein: ---
   prot2 <- reactive({
     if (is.null(input$protein)) {
       return(NULL)
@@ -181,11 +188,10 @@ server <- function(session, input, output, clientData) {
                            selected = NULL)
     }
   })
-  # If the checkbox "allSites" is checked, plot all the sites of the protein, else, plot only the one selected in the field "psite":
-  #################
+  # If the checkbox "allSites" is checked, plot all the sites of the protein, else, plot only the one selected in the field "psite": ---
   psite2 <- reactive({
     if (input$SearchMode == "ID") {
-      if (input$allSites) {
+      if (ChekAllSites()) {
         res <- export$phosphoSites[export$Accession == prot2()]
         return(res)
       } else {
@@ -211,7 +217,7 @@ server <- function(session, input, output, clientData) {
     } else {
       # If allSites is checked: plot all the sites for the protein selected:
       #########################
-      if (input$allSites) {
+      if (ChekAllSites()) {
         # Table preparation:
         cols <- which(grepl("MeanLoops", names(export)))
         gtab <- export[export$Accession %in% prot2(),cols]
@@ -312,7 +318,7 @@ server <- function(session, input, output, clientData) {
       gtab <- plotTable()
       # If allSites is checked: plot all the sites for the protein selected:
       #########################
-      if (input$allSites) {
+      if (ChekAllSites()) {
         g <- ggplot(gtab, aes(x = TimePoint, y = value)) +
           geom_line(aes(x = TimePoint, y = value, group = Replicate, col = colorgroup), size = 1.2) +
           geom_vline(xintercept = 0, size = 1.2) +
@@ -362,7 +368,7 @@ server <- function(session, input, output, clientData) {
       gtab <- plotTable()
       # If allSites is checked: plot all the sites for the protein selected:
       #########################
-      if (input$allSites) {
+      if (ChekAllSites()) {
         lg <- list()
         ylimplot <- range(gtab$value)
         for (el in unique(gtab$phosphosite)) {
@@ -410,7 +416,7 @@ server <- function(session, input, output, clientData) {
       gtab <- plotTable()
       # If allSites is checked: plot all the sites for the protein selected:
       #########################
-      if (input$allSites) {
+      if (ChekAllSites()) {
         colourval <- list()
         for (el in unique(gtab$phosphosite)) {
           gtab2 <- gtab[gtab$phosphosite %in% el,]
@@ -444,7 +450,7 @@ server <- function(session, input, output, clientData) {
     },
     content = function(file) {
       pdf(file, width = 8.5, height = 6.5)
-      if (input$allSites) {
+      if (ChekAllSites()) {
         for (iterplot in seq_along(plotInputExport())) {
           loopcolval <- loopcolourvalue()[[iterplot]]
           toplot <- plotInputExport()[[iterplot]]
@@ -462,7 +468,7 @@ server <- function(session, input, output, clientData) {
       need(!is.null(psite2()), "Select a site of interest to plot.")
     ),
     filename = function(){
-      if (input$allSites) {
+      if (ChekAllSites()) {
         na <- gsub(" / ", "-", input$protein, fixed = T)
       } else {
         na <- gsub("+", "And", psite2(), fixed = T)
@@ -481,7 +487,7 @@ server <- function(session, input, output, clientData) {
       need(!is.null(psite2()), "Select a site of interest to plot.")
     ),
     filename = function(){
-      if (input$allSites) {
+      if (ChekAllSites()) {
         na <- gsub(" / ", "-", input$protein, fixed = T)
       } else {
         na <- gsub("+", "And", psite2(), fixed = T)
