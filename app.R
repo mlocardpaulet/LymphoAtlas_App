@@ -91,7 +91,7 @@ ui <- fluidPage(
 ## Server:
 ############################################################################
 
-server <- function(session, input, output) {
+server <- function(session, input, output, clientData) {
   # Define protein:
   #################
   prot2 <- reactive({
@@ -131,7 +131,7 @@ server <- function(session, input, output) {
   })
   # Make the plot:
   ################
-  output$psiteplot <- renderPlotly({
+  plotInput <- function(){
     if (is.null(prot2())) {
       return(NULL)
     } else {
@@ -144,7 +144,6 @@ server <- function(session, input, output) {
         names(gtab) <- gsub("MeanLoops_", "", names(gtab), fixed = T)
         gtab$phosphosite <- export$GeneID[export$Accession %in% prot2()]
         gtab <- melt(gtab)
-        print(unique(gtab$phosphosite))
         validate (
           need(length(gtab$value[!is.na(gtab$value)]) > 0, "Select phosphorylation sites of interest")
         )
@@ -165,8 +164,6 @@ server <- function(session, input, output) {
         gtab <- gtab[!is.na(gtab$value),]
         
         g <- ggplot(gtab, aes(x = TimePoint, y = value)) + geom_line(aes(x = TimePoint, y = value, group = Replicate, col = Replicate), size = 1.2) + geom_vline(xintercept = 0, size = 1.2) + geom_point(col = "black", shape = "+", size = 4, alpha = 0.8) + theme_minimal() + ggtitle(paste0("Sites of ", input$protein, " upon TCR activation")) + scale_color_manual(values = coloursLines[seq_along(unique(gtab$Replicate))]) + ylab("log2-transformed normalised MS intensities") + xlab("Time after stimulation (in seconds)") + facet_wrap(~phosphosite)# + geom_boxplot(aes(x = TimePoint, y = value), width = 0.5)
-        p <- ggplotly(g, height = 800) %>%
-          config(displayModeBar = F)
         # If allSites is notchecked: plot all the sites for the protein selected:
         #########################
       } else {
@@ -198,13 +195,74 @@ server <- function(session, input, output) {
           gtab <- gtab[!is.na(gtab$value),]
           
           g <- ggplot(gtab, aes(x = TimePoint, y = value)) + geom_line(aes(x = TimePoint, y = value, group = Replicate, col = Replicate), size = 1.2) + geom_vline(xintercept = 0, size = 1.2) + geom_point(col = "black", shape = "+", size = 5, alpha = 0.8) + theme_minimal() + ggtitle(paste0(psite2(), " upon TCR activation")) + scale_color_manual(values = coloursLines[seq_along(unique(gtab$Replicate))]) + ylab("log2-transformed normalised MS intensities") + xlab("Time after stimulation (in seconds)") # + geom_boxplot(aes(x = TimePoint, y = value), width = 0.5)
-          p <- ggplotly(g, height = 600) %>%
-            config(displayModeBar = F)
         }
       }
-      return(p)
+      return(g)
     }
+  }
+  output$psiteplot <- renderPlotly({
+    p <- plotInput()
+    ggplotly(p, height = 600) %>%
+      config(displayModeBar = F)
   })
+  
+  # For export:
+  ############
+  # pdf output:
+  output$Download <- downloadHandler(
+    validate(
+      need(!is.null(psite2()), "Select a site of interest to plot.")
+    ),
+    filename = function(){
+      if (input$allSites) {
+        na <- gsub(" / ", "-", input$protein, fixed = T)
+      } else {
+        na <- gsub("+", "And", psite2(), fixed = T)
+      } 
+      paste0("LymphoAtlas_", na, "_", Sys.Date(), ".pdf")
+    },
+    content = function(file) {
+      ggsave(file, plot = plotInput(), device = "pdf", width = 8.5, height = 6.5)
+    })
+  # png output:
+  output$Download1 <- downloadHandler(
+    validate(
+      need(!is.null(psite2()), "Select a site of interest to plot.")
+    ),
+    filename = function(){
+      if (input$allSites) {
+        na <- gsub(" / ", "-", input$protein, fixed = T)
+      } else {
+        na <- gsub("+", "And", psite2(), fixed = T)
+      } 
+      paste0("LymphoAtlas_", na, "_", Sys.Date(), ".png")
+    },
+    content = function(file) {
+      device <- function(..., width, height) {
+        grDevices::png(..., width = 1000, height = 800, res = 120)
+      }
+      ggsave(file, plot = plotInput(), device = device)
+    })
+  # svg output:
+  output$Download2 <- downloadHandler(
+    validate(
+      need(!is.null(psite2()), "Select a site of interest to plot.")
+    ),
+    filename = function(){
+      if (input$allSites) {
+        na <- gsub(" / ", "-", input$protein, fixed = T)
+      } else {
+        na <- gsub("+", "And", psite2(), fixed = T)
+      } 
+      paste0("LymphoAtlas_", na, "_", Sys.Date(), ".svg")
+    },
+    content = function(file) {
+      device <- function(..., width, height) {
+        grDevices::svg(..., width = 8.5, height = 6.5)
+      }
+      ggsave(file, plot = plotInput(), device = device)
+    })
+  ############
 }
 
 
