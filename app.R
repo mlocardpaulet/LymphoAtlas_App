@@ -7,6 +7,8 @@
 # The fact that you are presently reading this means that you have had knowledge of the CeCILL license and that you accept its terms.
 ############################################################################
 
+# Logs are in /var/log/shiny-server
+
 # Packages:
 ############################################################################
 library(shiny)
@@ -140,8 +142,9 @@ server <- function(session, input, output) {
         cols <- which(grepl("MeanLoops", names(export)))
         gtab <- export[export$Accession %in% prot2(),cols]
         names(gtab) <- gsub("MeanLoops_", "", names(gtab), fixed = T)
-        gtab <- melt(gtab)
         gtab$phosphosite <- export$GeneID[export$Accession %in% prot2()]
+        gtab <- melt(gtab)
+        print(unique(gtab$phosphosite))
         validate (
           need(length(gtab$value[!is.na(gtab$value)]) > 0, "Select phosphorylation sites of interest")
         )
@@ -161,7 +164,7 @@ server <- function(session, input, output) {
         gtab$TimePoint <- as.numeric(as.character(gtab$TimePoint))
         gtab <- gtab[!is.na(gtab$value),]
         
-        g <- ggplot(gtab, aes(x = TimePoint, y = value)) + geom_line(aes(x = TimePoint, y = value, group = Replicate, col = Replicate), size = 1.2) + geom_vline(xintercept = 0, size = 1.2) + geom_point(col = "black", shape = "+", size = 4, alpha = 0.8) + theme_minimal() + ggtitle(paste0("Sites of ", input$protein, " upon TCR activation")) + scale_color_manual(values = coloursLines[seq_along(unique(gtab$Replicate))]) + ylab("log2-transformed normalised MS intensities") + xlab("Time after stimulation (in seconds)") + facet_wrap(.~phosphosite)# + geom_boxplot(aes(x = TimePoint, y = value), width = 0.5)
+        g <- ggplot(gtab, aes(x = TimePoint, y = value)) + geom_line(aes(x = TimePoint, y = value, group = Replicate, col = Replicate), size = 1.2) + geom_vline(xintercept = 0, size = 1.2) + geom_point(col = "black", shape = "+", size = 4, alpha = 0.8) + theme_minimal() + ggtitle(paste0("Sites of ", input$protein, " upon TCR activation")) + scale_color_manual(values = coloursLines[seq_along(unique(gtab$Replicate))]) + ylab("log2-transformed normalised MS intensities") + xlab("Time after stimulation (in seconds)") + facet_wrap(~phosphosite)# + geom_boxplot(aes(x = TimePoint, y = value), width = 0.5)
         p <- ggplotly(g, height = 800) %>%
           config(displayModeBar = F)
         # If allSites is notchecked: plot all the sites for the protein selected:
