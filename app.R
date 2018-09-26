@@ -65,54 +65,75 @@ ui <- fluidPage(
   titlePanel("LymphoAtlas"),
   
   # Sidebar with a slider input for the phosphorylation site of interest: 
+  
+  radioButtons("SearchMode", "Search mode:",
+               c("by identification" = 'ID',
+                 "by kinetics" = 'kinetics'),
+               selected = 'ID',
+               inline = TRUE
+  ), 
   sidebarLayout(
-    sidebarPanel(
-      #################################
-      # Select the protein of interest:
-      #################################
-      selectizeInput("protein",
-                     "Protein of interest:",
-                     choices = sort(unique(paste0(export$GeneNames, " / ", export$Accession))),
-                     selected = "Zap70 / P43404",
-                     multiple = FALSE),
-      bsTooltip("protein", 
-                "If the list of proteins to select does not include your protein of interest, enter it in the selection box.",
-                "right"),
-      #################################
-      # Once the protein of interest is selected, select one or all the sites of the protein:
-      #################################
-      checkboxInput("allSites", "Show all the sites of the selected protein", FALSE), 
-      conditionalPanel(condition = "input.allSites==false",
-                       selectizeInput("psite",
-                                      "Phosphorylation site of interest:",
-                                      choices = NULL,
-                                      selected = NULL,
-                                      multiple = FALSE)#,
-                       # bsTooltip("psite", 
-                       #           "Select which phosphorylation site to plot",
-                       #           "right")
-      ),
-      conditionalPanel(condition = "input.allSites==true",
-                       checkboxInput("fixedAxis",
-                                     "Free the y-axis",
-                                     FALSE),
-                       bsTooltip("fixedAxis",
-                                 "Check if you want the y-axis to be free",
-                                 "right")
-      ),
-      # Buttons for download:
-      downloadButton("Download", "Download .pdf"),
-      bsTooltip("Download", 
-                "Will plot one plot per page",
-                "right"),
-      downloadButton("Download1", "Download .png"),
-      bsTooltip("Download1", 
-                "Will plot all the plots on one page",
-                "right"),
-      downloadButton("Download2", "Download .svg"),
-      bsTooltip("Download2", 
-                "Will plot all the plots on one page",
-                "right")
+    sidebarPanel(width = 4,
+                 # Conditional panels:
+                 # Part 1:
+                 conditionalPanel(condition="input.SearchMode== 'ID'",
+                                  # Select the protein of interest: ---
+                                  selectizeInput("protein",
+                                                 "Protein of interest:",
+                                                 choices = sort(unique(paste0(export$GeneNames, " / ", export$Accession))),
+                                                 selected = "Zap70 / P43404",
+                                                 multiple = FALSE),
+                                  bsTooltip("protein", 
+                                            "If the list of proteins to select does not include your protein of interest, enter it in the selection box.",
+                                            "right"),
+                                  # Once the protein of interest is selected, select one or all the sites of the protein: ---
+                                  checkboxInput("allSites", "Show all the sites of the selected protein", FALSE), 
+                                  conditionalPanel(condition = "input.allSites==false",
+                                                   selectizeInput("psite",
+                                                                  "Phosphorylation site of interest:",
+                                                                  choices = NULL,
+                                                                  selected = NULL,
+                                                                  multiple = FALSE)#,
+                                                   # bsTooltip("psite", 
+                                                   #           "Select which phosphorylation site to plot",
+                                                   #           "right")
+                                  ),
+                                  conditionalPanel(condition = "input.allSites==true",
+                                                   checkboxInput("fixedAxis",
+                                                                 "Free the y-axis",
+                                                                 FALSE),
+                                                   bsTooltip("fixedAxis",
+                                                             "Check if you want the y-axis to be free",
+                                                             "right")
+                                  ),
+                                  # Buttons for download:
+                                  downloadButton("Download", "Download .pdf"),
+                                  bsTooltip("Download", 
+                                            "Will plot one plot per page",
+                                            "right"),
+                                  downloadButton("Download1", "Download .png"),
+                                  bsTooltip("Download1", 
+                                            "Will plot all the plots on one page",
+                                            "right"),
+                                  downloadButton("Download2", "Download .svg"),
+                                  bsTooltip("Download2", 
+                                            "Will plot all the plots on one page",
+                                            "right"
+                                  )
+                 ),
+                 conditionalPanel(condition="input.SearchMode== 'kinetics'",
+                                  # Select the cluster of interest: ---
+                                  selectizeInput("cluster",
+                                                 "Cluster of interest:",
+                                                 choices = as.character(sort(unique(export$ClusterMerged))),
+                                                 selected = "1",
+                                                 multiple = FALSE),
+                                  selectizeInput("psite2",
+                                                 "Phosphorylation site of interest:",
+                                                 choices = NULL,
+                                                 selected = NULL,
+                                                 multiple = FALSE)
+                 )
     ),
     
     # Show a plot
@@ -146,27 +167,39 @@ server <- function(session, input, output, clientData) {
       return(res)
     }
   })
-  # Update the field of the psite selection:
-  #################
+  # Update the field of the psite selection: ---
   observe({
-    if (!is.null(prot2())) {
+    if (input$SearchMode == "ID") {
       updateSelectizeInput(session, "psite",
                            "Phosphorylation site of interest:",
                            choices = sort(as.character(export$GeneID[export$Accession == prot2()])),
+                           selected = NULL)
+    } else {
+      updateSelectizeInput(session, "psite2",
+                           "Phosphorylation site of interest:",
+                           choices = sort(as.character(export$GeneID[as.character(export$ClusterMerged) %in% input$cluster])),
                            selected = NULL)
     }
   })
   # If the checkbox "allSites" is checked, plot all the sites of the protein, else, plot only the one selected in the field "psite":
   #################
   psite2 <- reactive({
-    if (input$allSites) {
-      res <- export$phosphoSites[export$Accession == prot2()]
-      return(res)
+    if (input$SearchMode == "ID") {
+      if (input$allSites) {
+        res <- export$phosphoSites[export$Accession == prot2()]
+        return(res)
+      } else {
+        if (is.null(input$psite)) {
+          return(NULL)
+        } else {
+          return(input$psite)
+        }
+      }
     } else {
-      if (is.null(input$psite)) {
+      if (is.null(input$psite2)) {
         return(NULL)
       } else {
-        return(input$psite)
+        return(input$psite2)
       }
     }
   })
