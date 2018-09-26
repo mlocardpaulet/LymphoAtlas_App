@@ -267,8 +267,13 @@ server <- function(session, input, output, clientData) {
           # Table preparation:
           cols <- which(grepl("MeanLoops", names(export)))
           gtab <- export[export$GeneID %in% psite2(),cols]
+          if (nrow(gtab) > 1) {
+            gtab <- gtab[order(rowSums(gtab, na.rm = T), decreasing = T),][1,]
+            gtab$phosphosite <- unique(export$GeneID[export$GeneID %in% psite2()])
+          } else {
+            gtab$phosphosite <- export$GeneID[export$GeneID %in% psite2()]
+          }
           names(gtab) <- gsub("MeanLoops_", "", names(gtab), fixed = T)
-          gtab$phosphosite <- export$GeneID[export$GeneID %in% psite2()]
           gtab <- melt(gtab)
           validate (
             need(length(gtab$value[!is.na(gtab$value)]) > 0, "Select a phosphorylation site of interest")
@@ -291,6 +296,8 @@ server <- function(session, input, output, clientData) {
           gtab$colorgroup <-  paste0("Cluster ", gtab$Cluster, " ", gtab$Replicate)
           gtab$colorgroup <- gsub("Cluster NA", "Not regulated", gtab$colorgroup, fixed = T)
           #gtab <- gtab[!is.na(gtab$value),]
+          gtab <- gtab[order(gtab$variable),]
+          gtab <- gtab[order(gtab$phosphosite),]
           # Remove chunk of NA data:
           i <- 1
           vec <- gtab$value
