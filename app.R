@@ -70,8 +70,17 @@ ui <- fluidPage(
       ),
       # Buttons for download:
       downloadButton("Download", "Download .pdf"),
+      bsTooltip("Download", 
+                "Will plot one plot per page",
+                "right"),
       downloadButton("Download1", "Download .png"),
-      downloadButton("Download2", "Download .svg")
+      bsTooltip("Download1", 
+                "Will plot all the plots on one page",
+                "right"),
+      downloadButton("Download2", "Download .svg"),
+      bsTooltip("Download2", 
+                "Will plot all the plots on one page",
+                "right")
     ),
     
     # Show a plot
@@ -129,9 +138,9 @@ server <- function(session, input, output, clientData) {
       }
     }
   })
-  # Make the plot:
+  # Make the table for the plot:
   ################
-  plotInput <- function(){
+  plotTable <- function() {
     if (is.null(prot2())) {
       return(NULL)
     } else {
@@ -162,10 +171,6 @@ server <- function(session, input, output, clientData) {
         })
         gtab$TimePoint <- as.numeric(as.character(gtab$TimePoint))
         gtab <- gtab[!is.na(gtab$value),]
-        
-        g <- ggplot(gtab, aes(x = TimePoint, y = value)) + geom_line(aes(x = TimePoint, y = value, group = Replicate, col = Replicate), size = 1.2) + geom_vline(xintercept = 0, size = 1.2) + geom_point(col = "black", shape = "+", size = 4, alpha = 0.8) + theme_minimal() + ggtitle(paste0("Sites of ", input$protein, " upon TCR activation")) + scale_color_manual(values = coloursLines[seq_along(unique(gtab$Replicate))]) + ylab("log2-transformed normalised MS intensities") + xlab("Time after stimulation (in seconds)") + facet_wrap(~phosphosite)# + geom_boxplot(aes(x = TimePoint, y = value), width = 0.5)
-        # If allSites is notchecked: plot all the sites for the protein selected:
-        #########################
       } else {
         if (is.null(psite2())) {
           return(NULL)
@@ -193,7 +198,28 @@ server <- function(session, input, output, clientData) {
           })
           gtab$TimePoint <- as.numeric(as.character(gtab$TimePoint))
           gtab <- gtab[!is.na(gtab$value),]
-          
+        }
+      }
+      return(gtab)
+    }
+  }
+  # Make the plot:
+  ################
+  plotInput <- function(){
+    if (is.null(plotTable())) {
+      return(NULL)
+    } else {
+      gtab <- plotTable()
+      # If allSites is checked: plot all the sites for the protein selected:
+      #########################
+      if (input$allSites) {
+        g <- ggplot(gtab, aes(x = TimePoint, y = value)) + geom_line(aes(x = TimePoint, y = value, group = Replicate, col = Replicate), size = 1.2) + geom_vline(xintercept = 0, size = 1.2) + geom_point(col = "black", shape = "+", size = 4, alpha = 0.8) + theme_minimal() + ggtitle(paste0("Sites of ", input$protein, " upon TCR activation")) + scale_color_manual(values = coloursLines[seq_along(unique(gtab$Replicate))]) + ylab("log2-transformed normalised MS intensities") + xlab("Time after stimulation (in seconds)") + facet_wrap(~phosphosite)# + geom_boxplot(aes(x = TimePoint, y = value), width = 0.5)
+        # If allSites is notchecked: plot all the sites for the protein selected:
+        #########################
+      } else {
+        if (is.null(psite2())) {
+          return(NULL)
+        } else {
           g <- ggplot(gtab, aes(x = TimePoint, y = value)) + geom_line(aes(x = TimePoint, y = value, group = Replicate, col = Replicate), size = 1.2) + geom_vline(xintercept = 0, size = 1.2) + geom_point(col = "black", shape = "+", size = 5, alpha = 0.8) + theme_minimal() + ggtitle(paste0(psite2(), " upon TCR activation")) + scale_color_manual(values = coloursLines[seq_along(unique(gtab$Replicate))]) + ylab("log2-transformed normalised MS intensities") + xlab("Time after stimulation (in seconds)") # + geom_boxplot(aes(x = TimePoint, y = value), width = 0.5)
         }
       }
@@ -208,6 +234,33 @@ server <- function(session, input, output, clientData) {
   
   # For export:
   ############
+  plotInputExport <- function(){
+    if (is.null(plotTable())) {
+      return(NULL)
+    } else {
+      gtab <- plotTable()
+      # If allSites is checked: plot all the sites for the protein selected:
+      #########################
+      if (input$allSites) {
+        lg <- list()
+        ylimplot <- range(gtab$value)
+        for (el in unique(gtab$phosphosite)) {
+          g <- ggplot(gtab[gtab$phosphosite %in% el,], aes(x = TimePoint, y = value)) + geom_line(aes(x = TimePoint, y = value, group = Replicate, col = Replicate), size = 1.2) + geom_vline(xintercept = 0, size = 1.2) + geom_point(col = "black", shape = "+", size = 4, alpha = 0.8) + theme_minimal() + ggtitle(paste0(el, " upon TCR activation")) + scale_color_manual(values = coloursLines[seq_along(unique(gtab$Replicate))]) + ylab("log2-transformed normalised MS intensities") + xlab("Time after stimulation (in seconds)") + ylim(ylimplot) # + geom_boxplot(aes(x = TimePoint, y = value), width = 0.5)
+          lg[[length(lg) + 1]] <- g
+        }
+        # If allSites is notchecked: plot all the sites for the protein selected:
+        #########################
+      } else {
+        if (is.null(psite2())) {
+          return(NULL)
+        } else {
+          g <- ggplot(gtab, aes(x = TimePoint, y = value)) + geom_line(aes(x = TimePoint, y = value, group = Replicate, col = Replicate), size = 1.2) + geom_vline(xintercept = 0, size = 1.2) + geom_point(col = "black", shape = "+", size = 5, alpha = 0.8) + theme_minimal() + ggtitle(paste0(psite2(), " upon TCR activation")) + scale_color_manual(values = coloursLines[seq_along(unique(gtab$Replicate))]) + ylab("log2-transformed normalised MS intensities") + xlab("Time after stimulation (in seconds)") # + geom_boxplot(aes(x = TimePoint, y = value), width = 0.5)
+          lg <- list(g)
+        }
+      }
+      return(lg)
+    }
+  }
   # pdf output:
   output$Download <- downloadHandler(
     validate(
@@ -222,7 +275,11 @@ server <- function(session, input, output, clientData) {
       paste0("LymphoAtlas_", na, "_", Sys.Date(), ".pdf")
     },
     content = function(file) {
-      ggsave(file, plot = plotInput(), device = "pdf", width = 8.5, height = 6.5)
+      pdf(file, width = 8.5, height = 6.5)
+      for (plot in plotInputExport()) {
+       print(plot) 
+      }
+      dev.off()
     })
   # png output:
   output$Download1 <- downloadHandler(
