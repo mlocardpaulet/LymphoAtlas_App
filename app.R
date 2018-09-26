@@ -105,20 +105,6 @@ ui <- fluidPage(
                                                    bsTooltip("fixedAxis",
                                                              "Check if you want the y-axis to be free",
                                                              "right")
-                                  ),
-                                  # Buttons for download:
-                                  downloadButton("Download", "Download .pdf"),
-                                  bsTooltip("Download", 
-                                            "Will plot one plot per page",
-                                            "right"),
-                                  downloadButton("Download1", "Download .png"),
-                                  bsTooltip("Download1", 
-                                            "Will plot all the plots on one page",
-                                            "right"),
-                                  downloadButton("Download2", "Download .svg"),
-                                  bsTooltip("Download2", 
-                                            "Will plot all the plots on one page",
-                                            "right"
                                   )
                  ),
                  conditionalPanel(condition="input.SearchMode== 'kinetics'",
@@ -133,6 +119,20 @@ ui <- fluidPage(
                                                  choices = NULL,
                                                  selected = NULL,
                                                  multiple = FALSE)
+                 ),
+                 # Buttons for download:
+                 downloadButton("Download", "Download .pdf"),
+                 bsTooltip("Download", 
+                           "Will plot one plot per page",
+                           "right"),
+                 downloadButton("Download1", "Download .png"),
+                 bsTooltip("Download1", 
+                           "Will plot all the plots on one page",
+                           "right"),
+                 downloadButton("Download2", "Download .svg"),
+                 bsTooltip("Download2", 
+                           "Will plot all the plots on one page",
+                           "right"
                  )
     ),
     
