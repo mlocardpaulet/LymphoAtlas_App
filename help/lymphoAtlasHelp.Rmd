@@ -1,0 +1,130 @@
+---
+title: "LymphoAtlas - Utilisation manual"
+author: "Marie Locard-Paulet"
+date: '`r date()`' 
+output: 
+    html_document:
+    toc: true
+    toc_depth: 2
+---
+
+
+<style>
+  .col2 {
+    columns: 2 200px;         /* number of columns and width in pixels*/
+    -webkit-columns: 2 200px; /* chrome, safari */
+    -moz-columns: 2 200px;    /* firefox */
+  }
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F)
+
+require(knitr)
+require(kableExtra)
+require(dplyr)
+require(ggplot2)
+```
+
+
+
+The web application [LymphoAtlas](https://masstools.ipbs.fr/mstools/LymphoAtlas/) allows the visualisation of phosphoproteomics data from Locard-Paulet et al.. T cell activation was triggered using anti-CD3 plus anti-CD4 antibodies. Then T cells were snap frozen in liquid nitrogen after 0, 15, 30, 120, 300 and 600 seconds, and subjected to phosphoproteomics analysis to capture the earliest molecular events induced by TCR engagement.
+
+It can be found on our [team\'s webpage](https://masstools.ipbs.fr/mstools/) and the corresponding scripts are accessible [here](https://github.com/mlocardpaulet/LymphoAtlas_App). It is governed by the [CeCILL license](http://www.cecill.info).
+
+# Step-by-step description of the options:
+
+***
+
+## Search mode:
+
+<div class="col2">
+
+<br />
+![](Figures/SearchMode.PNG) 
+<br />
+<br />
+
+The first check boxes define the mode of selection of the phosphorylation sites. The user can:
+
+* Search for a protein of interest when checking the "by identification" box.
+* Search among the phosphorylation sites regulated upon TCR activation in function of their kinetic profiles (search through the clusters) when checking the "by kinetics" box.
+
+
+</div>
+
+***
+
+## by identification
+
+<div class="col2">
+
+![](Figures/InputProt.PNG) 
+
+Choose a protein of interest.
+
+</div>
+
+
+***
+
+<div class="col2">
+
+![](Figures/AllSites.PNG) 
+<br />
+
+The user can plot all the sites of the selected protein by checking the option "Show all the sites of the selected protein". By default, all the *y*-axis are fixed to the same min. and max. values. To free them, the user can check "Free the y-axis". This option will be reported on the exported figures.
+
+</div>
+
+***
+
+<div class="col2">
+
+![](Figures/InputPsite.PNG) 
+
+Select a phosphorylation site of interest.
+
+</div>
+
+***
+
+## by kinetics
+
+<div class="col2">
+
+![](Figures/InputCluster.PNG) 
+
+Select a cluster of interest. The cluster 12 contains the regulated sites that were not attributed to any of the 11 defined clusters.
+
+</div>
+
+
+***
+
+<div class="col2">
+
+![](Figures/InputPsite.PNG) 
+
+Select a phosphorylation site of interest.
+
+</div>
+
+***
+
+
+### Result export
+
+<div class="col2">
+<br />
+<br />
+![](Figures/Download.PNG) 
+<br />
+<br />
+<br />
+<br />
+
+These buttons instantly download an image corresponding to the current plot. The user can choose between three file formats. The file will be saved in the Downloads folder of the user, and will be named "LymphoAtlas_" with the name of the phosphorylation site or protein, and the date of the day.
+
+Exporting all the sites of a proteins in "pdf" will result in a document of several pages where each page contains a phosphorylation site kinetic.
+</div>
