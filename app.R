@@ -8,7 +8,6 @@
 ############################################################################
 
 # Logs are in /var/log/shiny-server
-# Help files are in /var/www/html
 
 # Packages:
 ############################################################################
@@ -61,16 +60,9 @@ matriceColours2 <- data.frame("colorcodes" = colorcodes, "value" = colrep)
 ## UI:
 ############################################################################
 ui <- fluidPage(
-  fluidRow(
-    column(3, titlePanel("LymphoAtlas")
-    ),
-    column(1, actionButton(inputId='ab1', label="Help", 
-                           onclick ="window.open('https://masstools.ipbs.fr/lymphoAtlasHelp.html', '_blank')",
-                           style="color: #fff; background-color: #673a49; border-color: #000000")
-    )
-  ),
-  tags$style(type='text/css', "#ab1 { width:80%; margin-top: 25px; font-family : Cursive; font-weight: 900; font-size: 160%;}"),
   
+  # Application title
+  titlePanel("LymphoAtlas"),
   
   # Sidebar with a slider input for the phosphorylation site of interest: 
   
