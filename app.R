@@ -395,7 +395,7 @@ server <- function(session, input, output, clientData) {
             geom_vline(xintercept = 0, size = 1.2) +
             geom_point(col = "black", shape = "+", size = 4, alpha = 0.8) +
             theme_minimal() + ggtitle(paste0(el, " upon TCR activation")) +
-            ylab("log2-transformed normalised MS intensities") +
+            ylab("log2-transformed normalised\nMS intensities") +
             xlab("Time after stimulation (in seconds)")
           if (input$fixedAxis == FALSE) {
             g <- g + ylim(ylimplot)
@@ -415,7 +415,7 @@ server <- function(session, input, output, clientData) {
             geom_point(col = "black", shape = "+", size = 5, alpha = 0.8) +
             theme_minimal() +
             ggtitle(paste0(psite2(), " upon TCR activation")) +
-            ylab("log2-transformed normalised MS intensities") +
+            ylab("log2-transformed normalised\nMS intensities") +
             xlab("Time after stimulation (in seconds)")  # I choose the colours later.
           lg <- list(g)
         }
@@ -464,7 +464,7 @@ server <- function(session, input, output, clientData) {
       paste0("LymphoAtlas_", na, "_", Sys.Date(), ".pdf")
     },
     content = function(file) {
-      pdf(file, width = 8.5, height = 6.5)
+      pdf(file, width = 4.5, height = 3)
       if (ChekAllSites()) {
         for (iterplot in seq_along(plotInputExport())) {
           loopcolval <- loopcolourvalue()[[iterplot]]
