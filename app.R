@@ -74,6 +74,7 @@ ui <- fluidPage(
   ), 
   sidebarLayout(
     sidebarPanel(width = 4,
+                 checkboxInput("Scalex", "Scaled x-axis (same space between time points)", FALSE), # To switch to factors on the x-scale (help visualising the early time points -15 and 30sec-)
                  # Conditional panels:
                  # Part 1:
                  conditionalPanel(condition="input.SearchMode== 'ID'",
@@ -87,7 +88,6 @@ ui <- fluidPage(
                                             "If the list of proteins to select does not include your protein of interest, enter it in the selection box.",
                                             "right"),
                                   # Once the protein of interest is selected, select one or all the sites of the protein: ---
-                                  checkboxInput("Scalex", "Scaled x-axis (same space between time points)", FALSE), # To switch to factors on the x-scale (help visualising the early time points -15 and 30sec-)
                                   checkboxInput("allSites", "Show all the sites of the selected protein", FALSE), 
                                   conditionalPanel(condition = "input.allSites==false",
                                                    selectizeInput("psite",
