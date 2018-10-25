@@ -87,6 +87,7 @@ ui <- fluidPage(
                                             "If the list of proteins to select does not include your protein of interest, enter it in the selection box.",
                                             "right"),
                                   # Once the protein of interest is selected, select one or all the sites of the protein: ---
+                                  checkboxInput("Scalex", "Scaled x-axis (same space between time points)", FALSE), # To switch to factors on the x-scale (help visualising the early time points -15 and 30sec-)
                                   checkboxInput("allSites", "Show all the sites of the selected protein", FALSE), 
                                   conditionalPanel(condition = "input.allSites==false",
                                                    selectizeInput("psite",
@@ -323,42 +324,79 @@ server <- function(session, input, output, clientData) {
       return(NULL)
     } else {
       gtab <- plotTable()
-      # If allSites is checked: plot all the sites for the protein selected:
-      #########################
-      if (ChekAllSites()) {
-        g <- ggplot(gtab, aes(x = TimePoint, y = value)) +
-          geom_line(aes(x = TimePoint, y = value, group = Replicate, col = colorgroup), size = 1.2) +
-          geom_vline(xintercept = 0, size = 1.2) +
-          geom_point(col = "black", shape = "+", size = 4, alpha = 0.8) +
-          theme_minimal() + ggtitle(paste0("Sites of ", input$protein, " upon TCR activation")) +
-          scale_color_manual(values = as.character(matriceColours2$value[match(sort(unique(gtab$colorgroup)), matriceColours2$colorcodes)]), name = "Cluster and\nbiological repeat") +
-          ylab("log2-transformed normalised MS intensities") +
-          xlab("Time after stimulation (in seconds)")
-        if (input$fixedAxis == FALSE) {
-          g <- g + facet_wrap(~phosphosite) 
-        } else {
-          g <- g + facet_wrap(~phosphosite, scales = "free_y", shrink = FALSE) 
-        }
-        
-        # If allSites is notchecked: plot all the sites for the protein selected:
+      if (input$Scalex) {
+        # If allSites is checked: plot all the sites for the protein selected:
         #########################
-      } else {
-        if (is.null(psite2())) {
-          return(NULL)
-        } else {
-          g <- ggplot(gtab, aes(x = TimePoint, y = value)) +
-            geom_line(aes(x = TimePoint, y = value, group = Replicate, col = Replicate), size = 1.2) +
+        if (ChekAllSites()) {
+          g <- ggplot(gtab, aes(x = factor(TimePoint), y = value)) +
+            geom_line(aes(x = factor(TimePoint), y = value, group = Replicate, col = colorgroup), size = 1.2) +
             geom_vline(xintercept = 0, size = 1.2) +
-            geom_point(col = "black", shape = "+", size = 5, alpha = 0.8) +
-            theme_minimal() + ggtitle(paste0(psite2(), " upon TCR activation")) +
-            scale_color_manual(values = as.character(unique(matriceColours2$value[match(gtab$colorgroup, matriceColours2$colorcodes)])), name = "Replicate") + 
+            geom_point(col = "black", shape = "+", size = 4, alpha = 0.8) +
+            theme_minimal() + ggtitle(paste0("Sites of ", input$protein, " upon TCR activation")) +
+            scale_color_manual(values = as.character(matriceColours2$value[match(sort(unique(gtab$colorgroup)), matriceColours2$colorcodes)]), name = "Cluster and\nbiological repeat") +
             ylab("log2-transformed normalised MS intensities") +
-            xlab("Time after stimulation (in seconds)") 
+            xlab("Time after stimulation (in seconds)")
+          if (input$fixedAxis == FALSE) {
+            g <- g + facet_wrap(~phosphosite) 
+          } else {
+            g <- g + facet_wrap(~phosphosite, scales = "free_y", shrink = FALSE) 
+          }
+          
+          # If allSites is notchecked: plot all the sites for the protein selected:
+          #########################
+        } else {
+          if (is.null(psite2())) {
+            return(NULL)
+          } else {
+            g <- ggplot(gtab, aes(x = factor(TimePoint), y = value)) +
+              geom_line(aes(x = factor(TimePoint), y = value, group = Replicate, col = Replicate), size = 1.2) +
+              geom_vline(xintercept = 0, size = 1.2) +
+              geom_point(col = "black", shape = "+", size = 5, alpha = 0.8) +
+              theme_minimal() + ggtitle(paste0(psite2(), " upon TCR activation")) +
+              scale_color_manual(values = as.character(unique(matriceColours2$value[match(gtab$colorgroup, matriceColours2$colorcodes)])), name = "Replicate") + 
+              ylab("log2-transformed normalised MS intensities") +
+              xlab("Time after stimulation (in seconds)") 
+          }
+        }
+      } else {
+        # If allSites is checked: plot all the sites for the protein selected:
+        #########################
+        if (ChekAllSites()) {
+          g <- ggplot(gtab, aes(x = TimePoint, y = value)) +
+            geom_line(aes(x = TimePoint, y = value, group = Replicate, col = colorgroup), size = 1.2) +
+            geom_vline(xintercept = 0, size = 1.2) +
+            geom_point(col = "black", shape = "+", size = 4, alpha = 0.8) +
+            theme_minimal() + ggtitle(paste0("Sites of ", input$protein, " upon TCR activation")) +
+            scale_color_manual(values = as.character(matriceColours2$value[match(sort(unique(gtab$colorgroup)), matriceColours2$colorcodes)]), name = "Cluster and\nbiological repeat") +
+            ylab("log2-transformed normalised MS intensities") +
+            xlab("Time after stimulation (in seconds)")
+          if (input$fixedAxis == FALSE) {
+            g <- g + facet_wrap(~phosphosite) 
+          } else {
+            g <- g + facet_wrap(~phosphosite, scales = "free_y", shrink = FALSE) 
+          }
+          
+          # If allSites is notchecked: plot all the sites for the protein selected:
+          #########################
+        } else {
+          if (is.null(psite2())) {
+            return(NULL)
+          } else {
+            g <- ggplot(gtab, aes(x = TimePoint, y = value)) +
+              geom_line(aes(x = TimePoint, y = value, group = Replicate, col = Replicate), size = 1.2) +
+              geom_vline(xintercept = 0, size = 1.2) +
+              geom_point(col = "black", shape = "+", size = 5, alpha = 0.8) +
+              theme_minimal() + ggtitle(paste0(psite2(), " upon TCR activation")) +
+              scale_color_manual(values = as.character(unique(matriceColours2$value[match(gtab$colorgroup, matriceColours2$colorcodes)])), name = "Replicate") + 
+              ylab("log2-transformed normalised MS intensities") +
+              xlab("Time after stimulation (in seconds)") 
+          }
         }
       }
       return(g)
     }
   }
+
   output$psiteplot <- renderPlotly({
     p <- plotInput()
     ggplotly(p, height = 600) %>%
