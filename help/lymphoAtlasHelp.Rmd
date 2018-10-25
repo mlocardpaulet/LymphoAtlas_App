@@ -70,6 +70,17 @@ Choose a protein of interest.
 
 <div class="col2">
 
+![](Figures/ScaleX.PNG) 
+<br />
+
+The user can choose to scale the x-axis in order to widen the space between the early time points.
+
+</div>
+
+***
+
+<div class="col2">
+
 ![](Figures/AllSites.PNG) 
 <br />
 
