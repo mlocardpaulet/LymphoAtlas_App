@@ -32,13 +32,13 @@ export$GeneNames <- sapply(export$GeneID, function(x) {
 
 # Colour scales for the different clusters:
 # coloursLines <- c("blue4", "deepskyblue4", "lightseagreen", "mediumspringgreen")
-colClusters <- colorRampPalette(c("#9E0142", "#D53E4F", "#F46D43", "#FDAE61", "#ABDDA4", "#66C2A5", "#3288BD", "#5E4FA2", "darkblue", "black"))(12)
+colClusters <- colorRampPalette(c("#9E0142", "#D53E4F", "#F46D43", "#FDAE61", "#ABDDA4", "#66C2A5", "#3288BD", "#5E4FA2", "darkblue"))(length(unique(export$ClusterMerged)))
 collight <- as.character(
   sapply(colClusters, function(x) {
     colorRampPalette(c("white", x))(10)[5]
   })
 )
-matriceColours <- cbind("dark" = colClusters, "light" = collight, "cluster" = 1:12)
+matriceColours <- cbind("dark" = colClusters, "light" = collight, "cluster" = 1:length(unique(export$ClusterMerged)))
 matriceColours <- rbind(matriceColours, c("grey30", "grey70", "NA"))
 
 colorcodes <- paste0(rep(matriceColours[,3], each = 4), rep(c(" R1", " R3", " R4", " R5"), nrow(matriceColours)))
