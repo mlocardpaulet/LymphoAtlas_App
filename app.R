@@ -20,6 +20,7 @@ library(heatmaply)
 library(RColorBrewer)
 library(viridis)
 
+#devtools::install("VoisinneG/queryup")
 library(queryup)
 
 
@@ -208,6 +209,19 @@ sidebar <- dashboardSidebar(
                                       multiple = TRUE),
                        checkboxInput("reg_only", "Select only regulated sites", value = TRUE),
                        br()
+              ),
+              menuItem("Annotations",
+                       tabName = "annot",
+                       startExpanded = FALSE,
+                       icon = icon("check-circle"),
+                       br(),
+                       actionButton("update_annot", label = "Update annotations"),
+                       br(),
+                       HTML('<div> <font size="2"> Warning : This may take a long time <br />or even fail! </font> </div>'),
+                       br(),
+                       textOutput("status_update"),
+                       br()
+                      # bsTooltip(id = "update_annot", title = "Warning : This may take a\n long time or even fail.\n Please be patient!")
               )
              
               
@@ -238,7 +252,8 @@ server <- function(session, input, output) {
                               hover_focus_y = NULL,
                               delim = NULL,
                               value_selected = NULL,
-                              data_merge = df_merge)
+                              data_merge = df_merge,
+                              status = "Please be patient!")
   
   #####################################################################################################
   # Reactive functions
@@ -297,9 +312,9 @@ server <- function(session, input, output) {
       
       #####################################################################################################
       
-      idx_match <- match(df_cast$psiteID, df_merge$psiteID)
-      df_cast[["Cluster"]] <- df_merge[["Cluster"]][idx_match]
-      df_cast[["GeneID"]] <- df_merge[["GeneID"]][idx_match]
+      idx_match <- match(df_cast$psiteID, react_val$data_merge$psiteID)
+      df_cast[["Cluster"]] <- react_val$data_merge[["Cluster"]][idx_match]
+      df_cast[["GeneID"]] <- react_val$data_merge[["GeneID"]][idx_match]
       df_cast <- df_cast[order(df_cast$Cluster, df_cast$GeneID), ]
       
       df_cast
@@ -338,8 +353,8 @@ server <- function(session, input, output) {
         need( length(react_val$psiteID_heatmap)>0, "No phospho-site selected" )
       )
       
-      idx_match <- match(react_val$psiteID_heatmap, df_merge$psiteID)
-      df <- df_merge[idx_match, ]
+      idx_match <- match(react_val$psiteID_heatmap, react_val$data_merge$psiteID)
+      df <- react_val$data_merge[idx_match, ]
       
       df <- df[order(df$Cluster, df$GeneID), ]
       
@@ -358,15 +373,16 @@ server <- function(session, input, output) {
       
       react_val$delim <- switch(input$var,
                                 "Protein families" = ", ",
+                                "Keywords" =";",
                                 "Kinase-substrate" = ";",
                                 "; ")
     })
     
     observeEvent(input$var, {
       if(input$reg_only){
-        all_levels <- paste(as.character(df_merge[[input$var]][df_merge$Cluster != "not regulated"]), collapse=react_val$delim)
+        all_levels <- paste(as.character(react_val$data_merge[[input$var]][react_val$data_merge$Cluster != "not regulated"]), collapse=react_val$delim)
       }else{
-        all_levels <- paste(as.character(df_merge[[input$var]]), collapse=react_val$delim)
+        all_levels <- paste(as.character(react_val$data_merge[[input$var]]), collapse=react_val$delim)
       }
       
       unique_levels <- unique(strsplit(all_levels, split = react_val$delim)[[1]])
@@ -383,7 +399,7 @@ server <- function(session, input, output) {
                                   "Kinase-substrate" = "Akt1",
                                   "Residue" = "Y", 
                                   "GO" = "cytoplasmic vesicle [GO:0031410]",
-                                  "GO(biological process)" =" endocytosis [GO:0006897]",
+                                  "GO(biological process)" = "endocytosis [GO:0006897]",
                                   "GO(molecular function)" = "calcium channel regulator activity [GO:0005246]",
                                   "GO(cellular component)" = "immunological synapse [GO:0001772]",
                                   NULL
@@ -404,18 +420,18 @@ server <- function(session, input, output) {
         idx_match <-unlist(
           lapply(input$selected, function(x){
             grep(paste("(",react_val$delim,"|^)", x,"($|", react_val$delim, ")", sep=""),
-                 as.character(df_merge[[input$var]]), fixed=FALSE)
+                 as.character(react_val$data_merge[[input$var]]), fixed=FALSE)
           })
         )
       }else{
         idx_match<-unlist(
           lapply(input$selected, function(x){
-            grep(x, as.character(df_merge[[input$var]]), fixed=TRUE)
+            grep(x, as.character(react_val$data_merge[[input$var]]), fixed=TRUE)
           })
         )
       }
       
-      df <- df_merge[idx_match, ]
+      df <- react_val$data_merge[idx_match, ]
       
       if(input$reg_only){
         react_val$psiteID_selected <- df$psiteID[df$Cluster != "not regulated"]
@@ -497,10 +513,44 @@ server <- function(session, input, output) {
       }
     })
     
+    observeEvent(input$update_annot,{
+      react_val$status <- "Querying UniProt..."
+    })
+    
+    observeEvent(react_val$status,{
+      if(react_val$status == "Querying UniProt..."){
+        df_annot <- queryup::get_annotations_uniprot(id = react_val$data_merge$Entry,
+                                                     columns = c("id",
+                                                                 "keywords",
+                                                                 "families",
+                                                                 "go",
+                                                                 "go(biological_process)",
+                                                                 "go(molecular_function)",
+                                                                 "go(cellular_component)"))
+        
+        idx_match <- match(react_val$data_merge$Entry, df_annot$id)
+        react_val$data_merge[["GO"]] <- df_annot[["Gene.ontology..GO."]][idx_match]
+        react_val$data_merge[["GO(biological process)"]] <- df_annot[["Gene.ontology..biological.process."]][idx_match]
+        react_val$data_merge[["GO(molecular function)"]] <- df_annot[["Gene.ontology..molecular.function."]][idx_match]
+        react_val$data_merge[["GO(cellular component)"]] <- df_annot[["Gene.ontology..cellular.component."]][idx_match]
+        react_val$data_merge[["Protein families"]] <- df_annot[["Protein.families"]][idx_match]
+        react_val$data_merge[["Keywords"]] <- df_annot[["Keywords"]][idx_match]
+        
+        react_val$status <- "Done!"
+      }
+      
+      
+    })
     
   }
   
-
+  #####################################################################################################
+  # Output text
+  
+  output$status_update <- renderText({
+    react_val$status
+  })
+  
   #####################################################################################################
   # Output data tables
   {
@@ -513,7 +563,7 @@ server <- function(session, input, output) {
       )
       
       DT::datatable(
-        df_merge[match(react_val$psiteID_focus, df_merge$psiteID), input$col_selected],
+        react_val$data_merge[match(react_val$psiteID_focus, react_val$data_merge$psiteID), input$col_selected],
         rownames = FALSE
       )
     })
@@ -531,6 +581,7 @@ server <- function(session, input, output) {
       )
 
     })
+    
   }
   
   
@@ -574,7 +625,7 @@ server <- function(session, input, output) {
         psite_label_size <- 12
       }else if(dim(df)[1]<40){
         psite_label_size <- 10
-      }else if(dim(df)[1]>70){
+      }else if(dim(df)[1]>60){
         psite_label_size <- 1
       }
       
@@ -659,7 +710,7 @@ server <- function(session, input, output) {
       
       p <- ggplot(df, aes(x=time, y=value, color = replicate)) + 
         theme(legend.title=element_blank()) +
-        ggtitle(df_merge$GeneID[ match(react_val$psiteID_focus, df_merge$psiteID) ])
+        ggtitle(react_val$data_merge$GeneID[ match(react_val$psiteID_focus, react_val$data_merge$psiteID) ])
         
       if(input$boxplot_focus){
         p <- p + geom_boxplot(mapping=aes(x=time, y=value), inherit.aes = FALSE, color = rgb(0.75, 0.75, 0.75) )
