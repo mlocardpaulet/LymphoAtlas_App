@@ -26,7 +26,6 @@ library(queryup)
 load("./data/df_merge.rda")
 
 names(df_merge)[names(df_merge)=="Kinase_reported_all"] <- "Kinase-substrate"
-names(df_merge)[names(df_merge)=="GO"] <- "GO terms"
 names(df_merge)[names(df_merge)=="Protein.families"] <- "Protein families"
 
 
@@ -34,13 +33,13 @@ levels(df_merge$Cluster) <- c( levels(df_merge$Cluster) , "not regulated" )
 df_merge$Cluster[is.na(df_merge$Cluster)] <- "not regulated"
 df_reg <- df_merge[df_merge$Cluster != "not regulated", ]
 
-# df_annot <- queryup::get_annotations_uniprot(id = df_merge$Entry[1:1000],
-#                                              columns = c("id", 
-#                                                          "keywords", 
+# df_annot <- queryup::get_annotations_uniprot(id = df_merge$Entry,
+#                                              columns = c("id",
+#                                                          "keywords",
 #                                                          "families",
-#                                                          "go", 
-#                                                          "go(biological_process)", 
-#                                                          "go(molecular_function)", 
+#                                                          "go",
+#                                                          "go(biological_process)",
+#                                                          "go(molecular_function)",
 #                                                          "go(cellular_component)"))
 # 
 # names(df_annot)[names(df_annot) == "Gene.ontology..GO."] <- "GO"
@@ -88,8 +87,9 @@ colClusters <- colorRampPalette(c("#9E0142", "#D53E4F", "#F46D43",
 colClusters <- c(colClusters, "#FFFFFF")
 names(colClusters) <- levels(df_reg$Cluster)
 delim <- ";"
-var_choices <- c("psiteID", "GeneID", "Gene", "Accession",  "Cluster", 
-                 "Keywords", "GO terms", "Protein families", "Kinase-substrate", "Residue")
+var_choices <- c("psiteID", "GeneID", "Gene", "Accession",  "Cluster", "Residue",
+                 "Keywords", "Protein families", "Kinase-substrate",
+                 "GO", "GO(biological process)", "GO(molecular function)", "GO(cellular component)")
 
 
 ########################################################################################################
@@ -237,13 +237,14 @@ server <- function(session, input, output) {
                               hover_focus_x = NULL,
                               hover_focus_y = NULL,
                               delim = NULL,
-                              value_selected = NULL)
+                              value_selected = NULL,
+                              data_merge = df_merge)
   
   #####################################################################################################
   # Reactive functions
   {
     
-      
+    
     gtab_selection <- reactive({
       
       validate(
@@ -372,16 +373,20 @@ server <- function(session, input, output) {
       unique_levels <- unique_levels[order(unique_levels)]
       
       default_selection <- switch(input$var,
-                                  "psiteID" = df_reg$psiteID[1],
-                                  "GeneID" = df_reg$GeneID[1],
-                                  "Accession" = df_reg$Accession[1],
-                                  "Gene" = df_reg$Gene[1],
-                                  "Cluster" = 3,
+                                  "psiteID" = "P24161_Y142",
+                                  "GeneID" = "Cd247_Y142",
+                                  "Accession" = "P24161",
+                                  "Gene" = "Cd247",
+                                  "Cluster" = 7,
                                   "Keywords" = "Actin-binding",
-                                  "GO terms" = "cytoplasmic vesicle [GO:0031410]",
                                   "Protein families" = "Protein kinase superfamily",
                                   "Kinase-substrate" = "Akt1",
-                                  "Residue" = "Y"
+                                  "Residue" = "Y", 
+                                  "GO" = "cytoplasmic vesicle [GO:0031410]",
+                                  "GO(biological process)" =" endocytosis [GO:0006897]",
+                                  "GO(molecular function)" = "calcium channel regulator activity [GO:0005246]",
+                                  "GO(cellular component)" = "immunological synapse [GO:0001772]",
+                                  NULL
       )
       
       updateSelectInput(session, "selected",
@@ -392,7 +397,10 @@ server <- function(session, input, output) {
     })
     
     observe({
-      if(input$var!="GO"){
+      if( ! input$var %in% c("GO", 
+                            "GO(biological process)", 
+                            "GO(molecular function)", 
+                            "GO(cellular component)")){
         idx_match <-unlist(
           lapply(input$selected, function(x){
             grep(paste("(",react_val$delim,"|^)", x,"($|", react_val$delim, ")", sep=""),

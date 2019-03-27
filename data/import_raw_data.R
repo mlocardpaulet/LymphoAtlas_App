@@ -35,4 +35,22 @@ df_merge[df_merge$Residue == "T" & !all_na_TiO2, as.character(df_cond$name[df_co
 
 df_merge$Cluster <- factor(as.numeric(df_merge$Cluster))
 
+##################################################################################################
+# Update annotations
+df_annot <- queryup::get_annotations_uniprot(id = df_merge$Entry,
+                                             columns = c("id",
+                                                         "keywords",
+                                                         "families",
+                                                         "go",
+                                                         "go(biological_process)",
+                                                         "go(molecular_function)",
+                                                         "go(cellular_component)"))
+
+idx_match <- match(df_merge$Entry, df_annot$id)
+df_merge[["GO terms"]] <- df_annot[["Gene.ontology..GO."]][idx_match]
+df_merge[["GO(biological process)"]] <- df_annot[["Gene.ontology..biological.process."]][idx_match]
+df_merge[["GO(molecular function)"]] <- df_annot[["Gene.ontology..molecular.function."]][idx_match]
+df_merge[["GO(cellular component)"]] <- df_annot[["Gene.ontology..cellular.component."]][idx_match]
+
+
 save(df_merge, file = "./data/df_merge.rda")
