@@ -20,33 +20,18 @@ library(heatmaply)
 library(RColorBrewer)
 library(viridis)
 
-#devtools::install("VoisinneG/queryup")
+#devtools::install_github("VoisinneG/queryup")
 library(queryup)
-
 
 load("./data/df_merge.rda")
 
 names(df_merge)[names(df_merge)=="Kinase_reported_all"] <- "Kinase-substrate"
 names(df_merge)[names(df_merge)=="Protein.families"] <- "Protein families"
 
-
 levels(df_merge$Cluster) <- c( levels(df_merge$Cluster) , "not regulated" )
 df_merge$Cluster[is.na(df_merge$Cluster)] <- "not regulated"
 df_reg <- df_merge[df_merge$Cluster != "not regulated", ]
 
-# df_annot <- queryup::get_annotations_uniprot(id = df_merge$Entry,
-#                                              columns = c("id",
-#                                                          "keywords",
-#                                                          "families",
-#                                                          "go",
-#                                                          "go(biological_process)",
-#                                                          "go(molecular_function)",
-#                                                          "go(cellular_component)"))
-# 
-# names(df_annot)[names(df_annot) == "Gene.ontology..GO."] <- "GO"
-# names(df_annot)[names(df_annot) == "Gene.ontology..biological.process."] <- "GO(biological process)"
-# names(df_annot)[names(df_annot) == "Gene.ontology..molecular.function."] <- "GO(molecular function)"
-# names(df_annot)[names(df_annot) == "Gene.ontology..cellular.component."] <- "GO(cellular component)"
 
 ########################################################################################################
 # Mapping conditions
@@ -109,8 +94,6 @@ body2<- dashboardBody(
              tabPanel("Plot options",
                       checkboxInput("show_bckg", "Show all points (t-SNE)", value = TRUE)
                       )
-             
-             #plotlyOutput("tsne")
          ), 
          box(
            title = "Selection", 
@@ -258,27 +241,26 @@ server <- function(session, input, output) {
   #####################################################################################################
   # Reactive functions
   {
-    
-    
+
+    df_melt_selected <- reactive({
+      df <- df_melt1
+      df <- df[(df$psiteID %in% react_val$psiteID_selected) | (df$Cluster != "not regulated"), ]
+      df
+    })
+      
     gtab_selection <- reactive({
       
       validate(
         need( length(react_val$psiteID_heatmap)>0, "Empty selection. Please modify selection choices." )
       )
       
-      df <- df_melt1
+      df <- df_melt_selected()
       df <- df[df$psiteID %in% react_val$psiteID_heatmap, ]
       df <- df[!is.na(df$value), ]
       
       validate(
         need( dim(df)[1]>0, "No data to display. Please modify selection choices." )
       )
-      
-      
-      # if(input$scale){
-      #   df$value[df$value > input$max_scale] <- input$max_scale
-      #   df$value[df$value < -input$max_scale] <- -input$max_scale
-      # }
       
       df$time_replicate <- paste(as.character(df$time), as.character(df$replicate))
       lev <- levels(df$time)
@@ -321,13 +303,15 @@ server <- function(session, input, output) {
       
     })
     
+    
+    
     gtab_focus <- reactive({
       
       validate(
         need( length(react_val$psiteID_focus) > 0, "Empty selection. Please select a phospho-site." )
       )
       
-      df <- df_melt1
+      df <- df_melt_selected()
       df <- df[df$psiteID == react_val$psiteID_focus, ]
       df <- df[!is.na(df$value), ]
       
@@ -389,10 +373,10 @@ server <- function(session, input, output) {
       unique_levels <- unique_levels[order(unique_levels)]
       
       default_selection <- switch(input$var,
-                                  "psiteID" = "P24161_Y142",
-                                  "GeneID" = "Cd247_Y142",
-                                  "Accession" = "P24161",
-                                  "Gene" = "Cd247",
+                                  "psiteID" = "Q9Z0R6_Y554",
+                                  "GeneID" = "Itsn2_Y554",
+                                  "Accession" = "Q9Z0R6",
+                                  "Gene" = "Itsn2",
                                   "Cluster" = 7,
                                   "Keywords" = "Actin-binding",
                                   "Protein families" = "Protein kinase superfamily",
@@ -455,6 +439,10 @@ server <- function(session, input, output) {
       
       event.data <- event_data("plotly_selected", source = "select_tsne")
       cluster_displayed <- unique(df_reg$Cluster[match(react_val$psiteID_selected, df_reg$psiteID)])
+      cluster_displayed <- cluster_displayed[!is.na(cluster_displayed)]
+      cluster_displayed <- cluster_displayed[order(cluster_displayed, decreasing = FALSE)]
+      
+      cat(cluster_displayed)
       
       if(!is.null(event.data) ){
         if(length(event.data$curveNumber)>0){
@@ -513,32 +501,47 @@ server <- function(session, input, output) {
       }
     })
     
-    observeEvent(input$update_annot,{
-      react_val$status <- "Querying UniProt..."
-    })
     
-    observeEvent(react_val$status,{
-      if(react_val$status == "Querying UniProt..."){
+    
+    observeEvent(input$update_annot,{
+      
+        # Create a Progress object
+        react_val$status <- "Querying Uniprot..."
+        
+        progress <- shiny::Progress$new(min = 0, max = 100)
+        progress$set(message = "Querying UniProt...", value = 0)
+        on.exit(progress$close())
+        updateProgress <- function(value = NULL, detail = NULL) {
+          progress$set(value = value, detail = detail)
+        }
+        
         df_annot <- queryup::get_annotations_uniprot(id = react_val$data_merge$Entry,
+                                                     max_keys = 400,
                                                      columns = c("id",
                                                                  "keywords",
                                                                  "families",
                                                                  "go",
                                                                  "go(biological_process)",
                                                                  "go(molecular_function)",
-                                                                 "go(cellular_component)"))
+                                                                 "go(cellular_component)"),
+                                                     updateProgress = updateProgress)
+                                           
+        if(!is.null(df_annot)){
+          idx_match <- match(react_val$data_merge$Entry, df_annot$id)
+          react_val$data_merge[["GO"]] <- df_annot[["Gene.ontology..GO."]][idx_match]
+          react_val$data_merge[["GO(biological process)"]] <- df_annot[["Gene.ontology..biological.process."]][idx_match]
+          react_val$data_merge[["GO(molecular function)"]] <- df_annot[["Gene.ontology..molecular.function."]][idx_match]
+          react_val$data_merge[["GO(cellular component)"]] <- df_annot[["Gene.ontology..cellular.component."]][idx_match]
+          react_val$data_merge[["Protein families"]] <- df_annot[["Protein.families"]][idx_match]
+          react_val$data_merge[["Keywords"]] <- df_annot[["Keywords"]][idx_match]
+          
+          react_val$status <- "Done!"
+          
+        } else{
+          react_val$status <- "Query failed..."
+        }                                         
+
         
-        idx_match <- match(react_val$data_merge$Entry, df_annot$id)
-        react_val$data_merge[["GO"]] <- df_annot[["Gene.ontology..GO."]][idx_match]
-        react_val$data_merge[["GO(biological process)"]] <- df_annot[["Gene.ontology..biological.process."]][idx_match]
-        react_val$data_merge[["GO(molecular function)"]] <- df_annot[["Gene.ontology..molecular.function."]][idx_match]
-        react_val$data_merge[["GO(cellular component)"]] <- df_annot[["Gene.ontology..cellular.component."]][idx_match]
-        react_val$data_merge[["Protein families"]] <- df_annot[["Protein.families"]][idx_match]
-        react_val$data_merge[["Keywords"]] <- df_annot[["Keywords"]][idx_match]
-        
-        react_val$status <- "Done!"
-      }
-      
       
     })
     
@@ -698,7 +701,7 @@ server <- function(session, input, output) {
         need( length(react_val$psiteID_focus) > 0, "Empty selection. Please select a phospho-site." )
       )
       
-      df <- df_melt1
+      df <- df_melt_selected()
       df <- df[df$psiteID == react_val$psiteID_focus, ]
       
       if(input$scale_focus){
