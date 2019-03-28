@@ -131,7 +131,9 @@ body2<- dashboardBody(
            ),
            tabPanel("Plot options", 
                     checkboxInput("scale_focus", label = "Scale values", value = FALSE),
-                    checkboxInput("boxplot_focus", label = "Show box plots", value = FALSE)
+                    checkboxInput("boxplot_focus", label = "Show box plots", value = FALSE),
+                    checkboxInput("scale_x_axis", label = "Scaled x axis (equal space between time points)", value = TRUE)
+                    
            ),
            tabPanel("Info", 
                     selectizeInput("col_selected",
@@ -664,6 +666,8 @@ server <- function(session, input, output) {
       p$x$data[[2]]$showscale <- FALSE
       p$x$data[[1]]$colorbar$yanchor <- "middle"
       p$x$data[[1]]$colorbar$y <- 0.5
+      p$x$data[[1]]$colorbar$xanchor <- "middle"
+      p$x$data[[1]]$colorbar$x <- 1
       p$x$source <- "select_heatmap"
       
       
@@ -711,6 +715,15 @@ server <- function(session, input, output) {
         ylabel <- "Intensity (log2)"
       }
       
+      df_mean <- gtab_focus()
+      
+      xlabel <- "time"
+      if(!input$scale_x_axis){
+        df$time <- as.numeric( do.call(rbind, strsplit(as.character(df$time), split="s")) )
+        df_mean$time <- as.numeric( do.call(rbind, strsplit(as.character(df_mean$time), split="s")) )
+        xlabel <- "time (s)"
+      }
+      
       p <- ggplot(df, aes(x=time, y=value, color = replicate)) + 
         theme(legend.title=element_blank()) +
         ggtitle(react_val$data_merge$GeneID[ match(react_val$psiteID_focus, react_val$data_merge$psiteID) ])
@@ -718,12 +731,12 @@ server <- function(session, input, output) {
       if(input$boxplot_focus){
         p <- p + geom_boxplot(mapping=aes(x=time, y=value), inherit.aes = FALSE, color = rgb(0.75, 0.75, 0.75) )
       }
-        
-      p <- p +
-        ylab( ylabel ) +
+      
+      p <- p + ylab( ylabel ) +
+        xlab(xlabel) +
         geom_point(alpha = 0.5, size = 2) +
         geom_line(mapping = aes(group = replicate), alpha = 0.5) +
-        geom_line(data = gtab_focus(),
+        geom_line(data = df_mean,
                   mapping = aes(x=time, y=value, color = variable, group = 1),
                   inherit.aes = FALSE,
                   alpha = 0.5)
