@@ -20,8 +20,8 @@ library(heatmaply)
 library(RColorBrewer)
 library(viridis)
 
-#devtools::install_github("VoisinneG/queryup")
-library(queryup)
+#devtools::install_github("VoisinneG/pannot")
+library(pannot)
 
 load("./data/df_merge.rda")
 
@@ -517,7 +517,7 @@ server <- function(session, input, output) {
           progress$set(value = value, detail = detail)
         }
         
-        df_annot <- queryup::get_annotations_uniprot(id = react_val$data_merge$Entry,
+        df_annot <- pannot::get_annotations_uniprot(id = react_val$data_merge$Entry,
                                                      max_keys = 400,
                                                      columns = c("id",
                                                                  "keywords",
