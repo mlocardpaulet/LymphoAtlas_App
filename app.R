@@ -39,7 +39,7 @@ library(pannot)
 
 load("./data/df_merge.rda")
 
-names(df_merge)[names(df_merge)=="Kinase_reported_all"] <- "Kinase-substrate"
+names(df_merge)[names(df_merge)=="Kinase_reported_mouse_human"] <- "Kinase-substrate"
 names(df_merge)[names(df_merge)=="Protein.families"] <- "Protein families"
 
 levels(df_merge$Cluster) <- c( levels(df_merge$Cluster) , "not regulated" )
@@ -543,7 +543,7 @@ server <- function(session, input, output) {
                                                      updateProgress = updateProgress)
                                            
         if(!is.null(df_annot)){
-          idx_match <- match(react_val$data_merge$Entry, df_annot$id)
+          idx_match <- match(react_val$data_merge$Entry, df_annot$query_id)
           react_val$data_merge[["GO"]] <- df_annot[["Gene.ontology..GO."]][idx_match]
           react_val$data_merge[["GO(biological process)"]] <- df_annot[["Gene.ontology..biological.process."]][idx_match]
           react_val$data_merge[["GO(molecular function)"]] <- df_annot[["Gene.ontology..molecular.function."]][idx_match]
