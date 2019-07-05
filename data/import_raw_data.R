@@ -1,15 +1,22 @@
 library(dplyr)
 library(data.table)
 
-load("~/ownCloud/Phospho-CD4/output/Tsite.rda")
+load("~/owncloud/Phospho-CD4/output/Tsite.rda")
 Tsite$Cluster[is.na(Tsite$Clusters)] <- NA
-df_intensity <- readxl::read_excel(paste("~/ownCloud/Phospho-CD4/data/PhosphoProteome-Proteome/", 
-                                         "PhosphoDataWithProtAnalysis_20180919.xlsx", 
-                                         sep = ""), 
-                                   sheet = 1, skip = 1, na = "NA")
+
+
+#path <- paste("~/ownCloud/Phospho-CD4/data/PhosphoProteome-Proteome/", "PhosphoDataWithProtAnalysis_20180919.xlsx", sep = "")
+path <- "~/owncloud/Phospho-CD4/manuscript/manuscript_supTable/Final tables/Supplementary Table 1.xlsx"
+df_intensity <- readxl::read_excel(path, sheet = 1, skip = 1, na = "NA")
+#format biological replicates names
+names(df_intensity) <- gsub("_R1_", "_A_", names(df_intensity))
+names(df_intensity) <- gsub("_R3_", "_B_", names(df_intensity))
+names(df_intensity) <- gsub("_R4_", "_C_", names(df_intensity))
+names(df_intensity) <- gsub("_R5_", "_D_", names(df_intensity))
 
 idx_match <- match(Tsite$psiteID, df_intensity$psiteID)
-df_merge <- cbind(Tsite, df_intensity[idx_match, grep("^MeanLoops_", names(df_intensity))])
+df_merge <- cbind(Tsite[, -which(names(Tsite)=="GeneID")], 
+                  df_intensity[idx_match, c(which(names(df_intensity) == "GeneID"), grep("^MeanLoops_", names(df_intensity)))])
 
 idx_intensity <- grep("^MeanLoops_", names(df_merge))
 names_intensity <- names(df_merge)[idx_intensity]
@@ -37,7 +44,7 @@ df_merge$Cluster <- factor(as.numeric(df_merge$Cluster))
 
 ##################################################################################################
 # Update annotations
-df_annot <- queryup::get_annotations_uniprot(id = df_merge$Entry,
+df_annot <- pannot::get_annotations_uniprot(id = df_merge$Entry,
                                              columns = c("id",
                                                          "keywords",
                                                          "families",
@@ -46,12 +53,16 @@ df_annot <- queryup::get_annotations_uniprot(id = df_merge$Entry,
                                                          "go(molecular_function)",
                                                          "go(cellular_component)"))
 
-idx_match <- match(df_merge$Entry, df_annot$id)
+idx_match <- match(df_merge$Entry, df_annot$query_id)
 df_merge[["GO"]] <- df_annot[["Gene.ontology..GO."]][idx_match]
 df_merge[["GO(biological process)"]] <- df_annot[["Gene.ontology..biological.process."]][idx_match]
 df_merge[["GO(molecular function)"]] <- df_annot[["Gene.ontology..molecular.function."]][idx_match]
 df_merge[["GO(cellular component)"]] <- df_annot[["Gene.ontology..cellular.component."]][idx_match]
 df_merge[["Protein.families"]] <- df_annot[["Protein.families"]][idx_match]
 df_merge[["Keywords"]] <- df_annot[["Keywords"]][idx_match]
+
+
+df_merge[["Kinase_reported_mouse_human"]] <- sapply(df_merge[["Kinase_reported_mouse_human"]], 
+                                            function(x){s<-strsplit(x, split=";", fixed = TRUE)[[1]]; paste(s[ sapply(s, nchar) > 0 ], collapse = ";")})
 
 save(df_merge, file = "./data/df_merge.rda")

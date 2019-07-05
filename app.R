@@ -1,11 +1,25 @@
-############################################################################
+##############################################################################################################
 # Copyright CNRS 2019
 # Contributors : Marie Locard-Paulet [marie.locard@ipbs.fr] and Guillaume Voisinne [voisinne@ciml.univ-mrs.fr]
-# This software is a computer program whose purpose is to visualize and inspect the LymphoAtlas phosphoproteomics data.
-# This software is governed by the CeCILL license under French law and abiding by the rules of distribution of free software. You can  use, modify and/or redistribute the software under the terms of the CeCILL license as circulated by CEA, CNRS and INRIA at the following URL "http://www.cecill.info". 
-# As a counterpart to the access to the source code and rights to copy, modify and redistribute granted by the license, users are provided only with a limited warranty and the software's author, the holder of the economic rights, and the successive licensors have only limited liability. In this respect, the user's attention is drawn to the risks associated with loading, using, modifying and/or developing or reproducing the software by the user in light of its specific status of free software,that may mean that it is complicated to manipulate, and that also therefore means that it is reserved for developers and experienced professionals having in-depth computer knowledge. Users are therefore encouraged to load and test the software's suitability as regards their requirements in conditions enabling the security of their systems and/or data to be ensured and, more generally, to use and operate it in the  same conditions as regards security. 
-# The fact that you are presently reading this means that you have had knowledge of the CeCILL license and that you accept its terms.
-############################################################################
+# This software is a computer program whose purpose is to visualize and inspect the LymphoAtlas 
+# phosphoproteomics data.
+# This software is governed by the CeCILL license under French law and abiding by the rules 
+# of distribution of free software. You can  use, modify and/or redistribute the software under 
+# the terms of the CeCILL license as circulated by CEA, CNRS and INRIA at the 
+# following URL "http://www.cecill.info". 
+# As a counterpart to the access to the source code and rights to copy, modify and redistribute 
+# granted by the license, users are provided only with a limited warranty and the software's author, 
+# the holder of the economic rights, and the successive licensors have only limited liability. 
+# In this respect, the user's attention is drawn to the risks associated with loading, using, 
+# modifying and/or developing or reproducing the software by the user in light of its specific 
+# status of free software,that may mean that it is complicated to manipulate, and that also 
+# therefore means that it is reserved for developers and experienced professionals having in-depth 
+# computer knowledge. Users are therefore encouraged to load and test the software's suitability as 
+# regards their requirements in conditions enabling the security of their systems and/or data to be 
+# ensured and, more generally, to use and operate it in the  same conditions as regards security. 
+# The fact that you are presently reading this means that you have had knowledge of the CeCILL license 
+# and that you accept its terms.
+##########################################################################################################3#
 
 library(shiny)
 library(shinyBS)
@@ -20,12 +34,12 @@ library(heatmaply)
 library(RColorBrewer)
 library(viridis)
 
-#devtools::install_github("VoisinneG/queryup")
-library(queryup)
+#devtools::install_github("VoisinneG/pannot")
+library(pannot)
 
 load("./data/df_merge.rda")
 
-names(df_merge)[names(df_merge)=="Kinase_reported_all"] <- "Kinase-substrate"
+names(df_merge)[names(df_merge)=="Kinase_reported_mouse_human"] <- "Kinase-substrate"
 names(df_merge)[names(df_merge)=="Protein.families"] <- "Protein families"
 
 levels(df_merge$Cluster) <- c( levels(df_merge$Cluster) , "not regulated" )
@@ -517,7 +531,7 @@ server <- function(session, input, output) {
           progress$set(value = value, detail = detail)
         }
         
-        df_annot <- queryup::get_annotations_uniprot(id = react_val$data_merge$Entry,
+        df_annot <- pannot::get_annotations_uniprot(id = react_val$data_merge$Entry,
                                                      max_keys = 400,
                                                      columns = c("id",
                                                                  "keywords",
@@ -529,7 +543,7 @@ server <- function(session, input, output) {
                                                      updateProgress = updateProgress)
                                            
         if(!is.null(df_annot)){
-          idx_match <- match(react_val$data_merge$Entry, df_annot$id)
+          idx_match <- match(react_val$data_merge$Entry, df_annot$query_id)
           react_val$data_merge[["GO"]] <- df_annot[["Gene.ontology..GO."]][idx_match]
           react_val$data_merge[["GO(biological process)"]] <- df_annot[["Gene.ontology..biological.process."]][idx_match]
           react_val$data_merge[["GO(molecular function)"]] <- df_annot[["Gene.ontology..molecular.function."]][idx_match]
