@@ -2,6 +2,6 @@
 .Rhistory
 .RData
 .Ruserdata
-*.png
+.png
 *.PNG
-
+README.html
