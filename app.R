@@ -106,7 +106,7 @@ body2<- dashboardBody(
                       plotlyOutput("tsne", height = "500px")
                       ),
              tabPanel("Plot options",
-                      checkboxInput("show_bckg", "Show all points (t-SNE)", value = TRUE)
+                      checkboxInput("show_bckg", "Show all TCR-regulated phospho-sites", value = TRUE)
                       )
          ), 
          box(
@@ -116,7 +116,7 @@ body2<- dashboardBody(
            selectizeInput("col_data_selection",
                           label = "Select columns to display",
                           choices = var_choices,
-                          selected = c("psiteID", "GeneID", "Gene", "Cluster"),
+                          selected = c("GeneID", "Gene", "Cluster"),
                           multiple = TRUE),
            div(style = 'overflow-x: scroll', DT::dataTableOutput("selection"))
          )
@@ -127,7 +127,7 @@ body2<- dashboardBody(
              tabPanel("Heatmap",
                       plotlyOutput("heatmap", height = "500px")),
              tabPanel("Plot options",
-                      checkboxInput("scale", "scale by row (Heatmap)", value = TRUE),
+                      checkboxInput("scale", "scale values by phospho-site", value = TRUE),
                       conditionalPanel(condition = "input.scale",
                                        numericInput("max_scale", label = "scale limit", 2),
                                        br()
@@ -153,7 +153,7 @@ body2<- dashboardBody(
                     selectizeInput("col_selected",
                                    label = "Select columns to display",
                                    choices = var_choices,
-                                   selected = c("psiteID", "Gene", "Keywords", "Protein families"),
+                                   selected = c("GeneID", "Keywords", "Protein families"),
                                    multiple = TRUE),
                     div(style = 'overflow-x: scroll', DT::dataTableOutput("data_focus"))
            )
@@ -164,14 +164,10 @@ body2<- dashboardBody(
              height = NULL,
              HTML(
                 '<div> 
-                LymphoAtlas is a free, open-source project released under the 
+                LymphoAtlas is an open-source project released under the 
                 <a href="https://www.cecill.info/index.en.html"> 
-                  CeCILL license
-                </a>. 
-                The original data is from 
-                <a href="a great paper here"> 
-                  Locard-Paulet et al.
-                </a> 
+                  CeCILL license 
+                </a>.
                 Phosphoproteomics analysis was conducted on effector CD4+ T cells following TCR activation
                 using cross-linking of anti-CD3 and anti-CD4 antibodies.
                 Please see 
@@ -180,12 +176,16 @@ body2<- dashboardBody(
                 </a>
                 for more details.
                 </div>'
+                
               )
            
          )
   )
   ),
-  HTML('<footer><font size="0.8">copyright 2019 - CNRS - All rights reserved - LymphoAtlas V1.0</font></footer>')
+  HTML('<footer>
+       <font size="0.8">copyright 2019 - CNRS - All rights reserved - LymphoAtlas V1.0 -</font> 
+       <a href =  "https://github.com/mlocardpaulet/LymphoAtlas_App"> <img src="GitHub-Mark-32px.png", height = 20></a>
+       </footer>')
   
 )
 
@@ -198,15 +198,24 @@ sidebar <- dashboardSidebar(
                        startExpanded = TRUE,
                        icon = icon("check-circle"),
                        selectInput("var",
-                                   label = "Select variable",
+                                   label = "Variable",
                                    choices = var_choices,
                                    selected = "Keywords"),
+                       bsTooltip("var",
+                                 "Choose a selection variable",
+                                 placement = "right"),
                        selectizeInput("selected",
-                                      label = "Select value(s)",
+                                      label = "Selected value(s)",
                                       choices = list(),
                                       selected = NULL,
                                       multiple = TRUE),
-                       checkboxInput("reg_only", "Select only regulated sites", value = TRUE),
+                       bsTooltip("selected",
+                                 "Choose values corresponding to the selection variable above. Multiple choices are allowed.",
+                                 placement = "right"),
+                       checkboxInput("reg_only", "TCR-regulated sites only", value = TRUE),
+                       bsTooltip("reg_only",
+                                 "Select only phospho-sites whose phosphorylation significantly varies during the first 10 min following TCR-stimulation",
+                                 placement = "right"),
                        br()
               ),
               menuItem("Annotations",
@@ -215,8 +224,11 @@ sidebar <- dashboardSidebar(
                        icon = icon("check-circle"),
                        br(),
                        actionButton("update_annot", label = "Update annotations"),
+                       bsTooltip("update_annot",
+                                 "Retrieve up-to-date protein annotations from UniProt",
+                                 placement = "right"),
                        br(),
-                       HTML('<div> <font size="2"> Warning : This may take a long time <br />or even fail! </font> </div>'),
+                       HTML('<div> <font size="2"> Warning : This may take a long time. </font> </div>'),
                        br(),
                        textOutput("status_update"),
                        br()
@@ -278,11 +290,11 @@ server <- function(session, input, output) {
         need( dim(df)[1]>0, "No data to display. Please modify selection choices." )
       )
       
-      df$time_replicate <- paste(as.character(df$time), as.character(df$replicate))
+      df$time_replicate <- paste(as.character(df$time), as.character(df$replicate), sep  = "-")
       lev <- levels(df$time)
       new_lev <- NULL
       for(i in 1:length(lev)){
-        new_lev <- c( new_lev, paste(lev[i], levels(df$replicate)))
+        new_lev <- c( new_lev, paste(lev[i], levels(df$replicate), sep  = "-"))
       }
       levels(df$time_replicate) <- new_lev
       
@@ -696,7 +708,7 @@ server <- function(session, input, output) {
       lines <- list()
       idx_rep <- sapply(levels(time), 
              function(x){ 
-               idx <- grep(paste("^", x, " ",sep=""), colnames(df_plot))
+               idx <- grep(paste("^", x, "-",sep=""), colnames(df_plot))
                ifelse(length(idx)>0, idx[length(idx)], NULL)
                })
 
@@ -739,7 +751,7 @@ server <- function(session, input, output) {
       }
       
       p <- ggplot(df, aes(x=time, y=value, color = replicate)) + 
-        theme(legend.title=element_blank()) +
+        #theme(legend.title=element_blank()) +
         ggtitle(react_val$data_merge$GeneID[ match(react_val$psiteID_focus, react_val$data_merge$psiteID) ])
         
       if(input$boxplot_focus){
@@ -753,7 +765,8 @@ server <- function(session, input, output) {
         geom_line(data = df_mean,
                   mapping = aes(x=time, y=value, color = variable, group = 1),
                   inherit.aes = FALSE,
-                  alpha = 0.5)
+                  alpha = 0.5) +
+        scale_color_discrete(name = "replicate")
       
       
       ggplotly(p)
