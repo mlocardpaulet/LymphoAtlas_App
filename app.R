@@ -93,8 +93,6 @@ var_choices <- c("psiteID", "GeneID", "Gene", "Accession",  "Cluster", "Residue"
                  "Keywords", "Protein families", "Kinase-substrate",
                  "GO", "GO(biological process)", "GO(molecular function)", "GO(cellular component)", "Sequence")
 
-var_display <- c(var_choices, "Sequence")
-
 ########################################################################################################
 #User interface ----
 
@@ -411,8 +409,6 @@ server <- function(session, input, output) {
       
       unique_levels <- unique_levels[order(unique_levels)]
       
-      #print(unique_levels)
-      
       default_selection <- switch(input$var,
                                   "psiteID" = "Q9Z0R6_Y554",
                                   "GeneID" = "Itsn2_Y554",
@@ -456,7 +452,6 @@ server <- function(session, input, output) {
                  as.character(react_val$data_merge[[input$var]]), fixed=FALSE)
           })
         )
-        print(idx_match)
       }else{
         idx_match<-unlist(
           lapply(input$selected, function(x){
