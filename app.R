@@ -39,6 +39,8 @@ library(pannot)
 
 load("./data/df_merge.rda")
 
+df_merge$Gene <- gsub("|", ";", df_merge$Gene, fixed = TRUE)
+
 names(df_merge)[names(df_merge)=="Kinase_reported_mouse_human"] <- "Kinase-substrate"
 names(df_merge)[names(df_merge)=="Protein.families"] <- "Protein families"
 
@@ -387,18 +389,28 @@ server <- function(session, input, output) {
                                 "Protein families" = ", ",
                                 "Keywords" =";",
                                 "Kinase-substrate" = ";",
+                                "Gene" = ";",
                                 "; ")
     })
     
-    observeEvent(input$var, {
+    observeEvent(c(input$var, input$reg_only), {
       if(input$reg_only){
         all_levels <- paste(as.character(react_val$data_merge[[input$var]][react_val$data_merge$Cluster != "not regulated"]), collapse=react_val$delim)
       }else{
         all_levels <- paste(as.character(react_val$data_merge[[input$var]]), collapse=react_val$delim)
       }
       
+      
+        
       unique_levels <- unique(strsplit(all_levels, split = react_val$delim)[[1]])
+      if(input$var == "Gene"){
+        
+        unique_levels <- unique(strsplit(paste(unique_levels, collapse = " "), split=" ", fixed = TRUE)[[1]])
+      }
+      
       unique_levels <- unique_levels[order(unique_levels)]
+      
+      #print(unique_levels)
       
       default_selection <- switch(input$var,
                                   "psiteID" = "Q9Z0R6_Y554",
@@ -428,13 +440,22 @@ server <- function(session, input, output) {
       if( ! input$var %in% c("GO", 
                             "GO(biological process)", 
                             "GO(molecular function)", 
-                            "GO(cellular component)")){
+                            "GO(cellular component)",
+                            "Gene")){
         idx_match <-unlist(
           lapply(input$selected, function(x){
             grep(paste("(",react_val$delim,"|^)", x,"($|", react_val$delim, ")", sep=""),
                  as.character(react_val$data_merge[[input$var]]), fixed=FALSE)
           })
         )
+      }else if(input$var == "Gene"){
+        idx_match <-unlist(
+          lapply(input$selected, function(x){
+            grep(paste("(",react_val$delim,"|\\s|^)", x,"($|\\s|", react_val$delim, ")", sep=""),
+                 as.character(react_val$data_merge[[input$var]]), fixed=FALSE)
+          })
+        )
+        print(idx_match)
       }else{
         idx_match<-unlist(
           lapply(input$selected, function(x){
