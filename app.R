@@ -91,8 +91,9 @@ names(colClusters) <- levels(df_reg$Cluster)
 delim <- ";"
 var_choices <- c("psiteID", "GeneID", "Gene", "Accession",  "Cluster", "Residue",
                  "Keywords", "Protein families", "Kinase-substrate",
-                 "GO", "GO(biological process)", "GO(molecular function)", "GO(cellular component)")
+                 "GO", "GO(biological process)", "GO(molecular function)", "GO(cellular component)", "Sequence")
 
+var_display <- c(var_choices, "Sequence")
 
 ########################################################################################################
 #User interface ----
