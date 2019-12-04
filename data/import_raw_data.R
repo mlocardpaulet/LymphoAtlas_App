@@ -1,13 +1,13 @@
 library(dplyr)
-library(data.table)
+library(reshape2)
 
-load("~/owncloud/Phospho-CD4/output/Tsite.rda")
+load("~/ownCloud/Phospho-CD4 backup/output/Tsite.rda")
 Tsite$Cluster[is.na(Tsite$Clusters)] <- NA
 
 
 #path <- paste("~/ownCloud/Phospho-CD4/data/PhosphoProteome-Proteome/", "PhosphoDataWithProtAnalysis_20180919.xlsx", sep = "")
-path <- "~/owncloud/Phospho-CD4/manuscript/manuscript_supTable/Final tables/Supplementary Table 1.xlsx"
-df_intensity <- readxl::read_excel(path, sheet = 1, skip = 1, na = "NA")
+path <- "~/ownCloud/Phospho-CD4 backup/manuscript/manuscript_supTable/Final tables/Supplementary Table 1.xlsx"
+df_intensity <- readxl::read_excel(path, sheet = 2, skip = 1, na = "NA")
 #format biological replicates names
 names(df_intensity) <- gsub("_R1_", "_A_", names(df_intensity))
 names(df_intensity) <- gsub("_R3_", "_B_", names(df_intensity))
@@ -16,14 +16,17 @@ names(df_intensity) <- gsub("_R5_", "_D_", names(df_intensity))
 
 idx_match <- match(Tsite$psiteID, df_intensity$psiteID)
 df_merge <- cbind(Tsite[, -which(names(Tsite)=="GeneID")], 
-                  df_intensity[idx_match, c(which(names(df_intensity) == "GeneID"), grep("^MeanLoops_", names(df_intensity)))])
+                  df_intensity[idx_match, 
+                               c(which(names(df_intensity) == "GeneID"), 
+                                 grep("^Mean Intensity_MV", names(df_intensity)),
+                                 grep("^Log2 Norm", names(df_intensity)))])
 
-idx_intensity <- grep("^MeanLoops_", names(df_merge))
+idx_intensity <- grep("^Mean Intensity_MV", names(df_merge))
 names_intensity <- names(df_merge)[idx_intensity]
 s<-strsplit(as.character(names_intensity), split="_")
 
 time <- sapply(s, function(x){x[4]})
-time <- factor(time, levels = c("NS.", "S15.", "S30.", "S120.", "S300.", "S600."))
+time <- factor(time, levels = c("NS", "S15", "S30", "S120", "S300", "S600"))
 replicate <- sapply(s, function(x){x[2]})
 dataset <- sapply(s, function(x){x[3]})
 
@@ -38,7 +41,6 @@ df_merge[df_merge$Residue == "T" & !all_na_TiO2, as.character(df_cond$name[df_co
 
 ##################################################################################################
 # Keep only corresponding dataset for "S", "T" and "Y" phospho sites
-
 
 df_merge$Cluster <- factor(as.numeric(df_merge$Cluster))
 
