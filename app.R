@@ -27,7 +27,8 @@ library(shinydashboard)
 
 library(ggplot2)
 library(ggrepel)
-library(data.table)
+library(reshape2)
+library(dplyr)
 library(DT)
 library(plotly)
 library(heatmaply)
@@ -36,6 +37,8 @@ library(viridis)
 
 #devtools::install_github("VoisinneG/pannot")
 library(pannot)
+
+#options(repos = BiocManager::repositories())
 
 load("./data/df_merge.rda")
 
@@ -52,15 +55,15 @@ df_reg <- df_merge[df_merge$Cluster != "not regulated", ]
 ########################################################################################################
 # Mapping conditions
 
-idx_intensity <- grep("^MeanLoops_", names(df_merge))
+idx_intensity <- grep("^Mean Intensity_MV", names(df_merge))
 names_intensity <- names(df_merge)[idx_intensity]
 s<-strsplit(as.character(names_intensity), split="_")
 
-time <- sapply(s, function(x){x[4]})
-time <- factor(time, levels = c("NS.", "S15.", "S30.", "S120.", "S300.", "S600."))
+time <- sapply(s, function(x){x[5]})
+time <- factor(time, levels = c("NS", "S15", "S30", "S120", "S300", "S600"))
 levels(time) <- c("0s","15s","30s","120s","300s","600s")
-replicate <- sapply(s, function(x){x[2]})
-dataset <- sapply(s, function(x){x[3]})
+replicate <- sapply(s, function(x){x[3]})
+dataset <- sapply(s, function(x){x[4]})
 
 df_cond <- data.frame(name = names_intensity, time = time, replicate = replicate, dataset = dataset)
 
@@ -72,13 +75,49 @@ df_melt <- melt(df_merge, id.vars = c("psiteID"), measure.vars = names_intensity
 df_melt$time <- df_cond$time[match(df_melt$variable, df_cond$name)]
 df_melt$replicate <- df_cond$replicate[match(df_melt$variable, df_cond$name)]
 
-df_cast <- dcast(df_melt, psiteID +  time ~ replicate, mean , na.rm = TRUE)
+df_melt <- df_melt %>% group_by(psiteID, time, replicate) %>% summarise(value = mean(value, na.rm = TRUE))
 
-df_melt1 <- melt(df_cast, id.vars = c("psiteID", "time"))
-names(df_melt1)[names(df_melt1)=="variable"] <- "replicate"
-df_melt1$Cluster <- df_merge$Cluster[match(df_melt1$psiteID, df_merge$psiteID)]
-df_melt1$label <- df_merge$GeneID[match(df_melt1$psiteID, df_merge$psiteID)]
+df_melt$Cluster <- df_merge$Cluster[match(df_melt$psiteID, df_merge$psiteID)]
+df_melt$label <- df_merge$GeneID[match(df_melt$psiteID, df_merge$psiteID)]
 
+########################################################################################################
+# identify missing values
+
+df <- df_merge
+idx_raw <- grep("^Log2", names(df))
+df_raw <- df[ , c(which(names(df) == "psiteID"), idx_raw)]
+names_raw <- names(df_raw)[-1]
+df_raw[names_raw] <- lapply(df_raw[names_raw], as.numeric)
+
+df_cond_raw <- as.data.frame( do.call(rbind, strsplit(as.character(names_raw), split="_")), 
+                              row.names =  names_raw)
+names(df_cond_raw)[c(2,3,4, 5)] <- c("replicate", "dataset", "time", "tech")
+df_cond_raw$name <- names_raw
+df_cond_raw$time <- factor(df_cond_raw$time, levels = c("NS", "S15", "S30", "S120", "S300", "S600"))
+levels(df_cond_raw$time) <- c("0s","15s","30s","120s","300s","600s")
+
+df_melt_raw <- melt(df_raw, id.vars = "psiteID")
+df_melt_raw$value <- as.numeric(df_melt_raw$value)
+idx_match <- match(df_melt_raw$variable, row.names(df_cond_raw))
+df_melt_raw$time <- df_cond_raw$time[idx_match]
+df_melt_raw$replicate <- df_cond_raw$replicate[idx_match]
+df_melt_raw$dataset <- df_cond_raw$dataset[idx_match]
+df_melt_raw$tech <- df_cond_raw$tech[idx_match]
+
+#average over dataset
+df_melt_raw <- df_melt_raw %>% group_by(psiteID, replicate, time, tech) %>% summarise(value = mean(value, na.rm = TRUE))
+
+#average over technical replicates
+df_melt_raw <- df_melt_raw %>% group_by(psiteID, replicate, time) %>% summarise(value = mean(value, na.rm = TRUE))
+
+df_melt_raw$missing <- is.na(df_melt_raw$value)
+
+id_melt_raw <- paste(df_melt_raw$psiteID, df_melt_raw$replicate, df_melt_raw$time)
+id_melt <- paste(df_melt$psiteID, df_melt$replicate, df_melt$time)
+
+df_melt$missing <- df_melt_raw$missing[match(id_melt, id_melt_raw)]
+df_melt$value_raw <- df_melt_raw$value[match(id_melt, id_melt_raw)]
+df_melt1 <- df_melt
 
 ########################################################################################################
 # App parameters
@@ -142,7 +181,7 @@ body2<- dashboardBody(
            id = "tabset1",
            width = NULL, height = NULL,
            tabPanel("Plot", 
-                    plotlyOutput("plot_focus", height = "300px")
+                    plotOutput("plot_focus", height = "300px")
            ),
            tabPanel("Plot options", 
                     checkboxInput("scale_focus", label = "Scale values", value = FALSE),
@@ -163,7 +202,7 @@ body2<- dashboardBody(
              solidHeader = TRUE,
              width = NULL, 
              height = NULL,
-             HTML(
+             shiny::HTML(
                 '<div> 
                 LymphoAtlas is an open-source project released under the 
                 <a href="https://www.cecill.info/index.en.html"> 
@@ -183,7 +222,7 @@ body2<- dashboardBody(
          )
   )
   ),
-  HTML('<footer>
+  shiny::HTML('<footer>
        <font size="0.8">copyright 2019 - CNRS - All rights reserved - LymphoAtlas V1.0 -</font> 
        <a href =  "https://github.com/mlocardpaulet/LymphoAtlas_App"> <img src="GitHub-Mark-32px.png", height = 20></a>
        </footer>')
@@ -229,7 +268,7 @@ sidebar <- dashboardSidebar(
                                  "Retrieve up-to-date protein annotations from UniProt",
                                  placement = "right"),
                        br(),
-                       HTML('<div> <font size="2"> Warning : This may take a long time. </font> </div>'),
+                       shiny::HTML('<div> <font size="2"> Warning : This may take a long time. </font> </div>'),
                        br(),
                        textOutput("status_update"),
                        br()
@@ -742,7 +781,7 @@ server <- function(session, input, output) {
       
     })
     
-    output$plot_focus <- renderPlotly({
+    output$plot_focus <- renderPlot({
       
       validate(
         need( length(react_val$psiteID_focus) > 0, "Empty selection. Please select a phospho-site." )
@@ -750,6 +789,7 @@ server <- function(session, input, output) {
       
       df <- df_melt_selected()
       df <- df[df$psiteID == react_val$psiteID_focus, ]
+      df$imputed <- df$missing
       
       if(input$scale_focus){
         df$value <- scale(df$value)
@@ -768,7 +808,7 @@ server <- function(session, input, output) {
       }
       
       p <- ggplot(df, aes(x=time, y=value, color = replicate)) + 
-        #theme(legend.title=element_blank()) +
+        theme(text = element_text(size = 14)) +
         ggtitle(react_val$data_merge$GeneID[ match(react_val$psiteID_focus, react_val$data_merge$psiteID) ])
         
       if(input$boxplot_focus){
@@ -777,16 +817,17 @@ server <- function(session, input, output) {
       
       p <- p + ylab( ylabel ) +
         xlab(xlabel) +
-        geom_point(alpha = 0.5, size = 2) +
+        geom_point(mapping = aes(shape = imputed, alpha = imputed), size = 4) +
         geom_line(mapping = aes(group = replicate), alpha = 0.5) +
         geom_line(data = df_mean,
                   mapping = aes(x=time, y=value, color = variable, group = 1),
                   inherit.aes = FALSE,
                   alpha = 0.5) +
-        scale_color_discrete(name = "replicate")
+        scale_color_discrete(name = "replicate") +
+        scale_alpha_manual(values = c("TRUE" = 0.5, "FALSE" = 1))
       
-      
-      ggplotly(p)
+      p
+      #ggplotly(p)
       
     })
   }
