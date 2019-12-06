@@ -2,9 +2,7 @@
 
 A *Shiny* application to visualise phospho-kinetics upon TCR activation.
 
-<button href="https://voisinneg.shinyapps.io/LymphoAtlas/">
-Launch LymphoAtlas app
-</button>
+[`Launch LymphoAtlas app`](https://voisinneg.shinyapps.io/LymphoAtlas/)
 
 ## Contributors
 
