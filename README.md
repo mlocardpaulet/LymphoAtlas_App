@@ -1,10 +1,8 @@
-<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.0/css/bootstrap.min.css">
-
 # LymphoAtlas
 
 A *Shiny* application to visualise phospho-kinetics upon TCR activation.
 
-<button type="button" class="btn btn-default" href="https://voisinneg.shinyapps.io/LymphoAtlas/">
+<button href="https://voisinneg.shinyapps.io/LymphoAtlas/">
 Launch LymphoAtlas app
 </button>
 
