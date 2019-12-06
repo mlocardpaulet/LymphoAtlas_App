@@ -1,12 +1,17 @@
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.0/css/bootstrap.min.css">
+
 # LymphoAtlas
 
 A *Shiny* application to visualise phospho-kinetics upon TCR activation.
 
-[`Launch LymphoAtlas app`](https://voisinneg.shinyapps.io/LymphoAtlas/)
+<button type="button" class="btn btn-default" href="https://voisinneg.shinyapps.io/LymphoAtlas/">
+Launch LymphoAtlas app
+</button>
 
 ## Contributors
 
-[Marie Locard-Paulet](https://github.com/mlocardpaulet) and [Guillaume Voisinne](https://github.com/VoisinneG/).
+Marie Locard-Paulet <a href="https://github.com/mlocardpaulet"> <img src="./www/GitHub-Mark-32px.png" width="16px"> </a> and Guillaume Voisinne <a href="https://github.com/voisinneg"> <img src="./www/GitHub-Mark-32px.png" width="16px"> </a>
+
 
 ## Copyright CNRS 2019
 
