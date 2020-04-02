@@ -47,6 +47,10 @@ df_merge$Gene <- gsub("|", ";", df_merge$Gene, fixed = TRUE)
 names(df_merge)[names(df_merge)=="Kinase_reported_mouse_human"] <- "Kinase-substrate"
 names(df_merge)[names(df_merge)=="Protein.families"] <- "Protein families"
 
+df_merge[["BestFC"]] <- 2^(df_merge[["BestFC"]])                                                                           
+df_merge[["pAnova(sci)"]] <- formatC(df_merge[["pAnova"]], format = "E", digits = 2)
+df_merge[["TestsPassed(%)"]] <- 100*df_merge[["ProportioPassStat"]]
+  
 levels(df_merge$Cluster) <- c( levels(df_merge$Cluster) , "not regulated" )
 df_merge$Cluster[is.na(df_merge$Cluster)] <- "not regulated"
 df_reg <- df_merge[df_merge$Cluster != "not regulated", ]
@@ -122,15 +126,34 @@ df_melt1 <- df_melt
 ########################################################################################################
 # App parameters
 
-colClusters <- colorRampPalette(c("#9E0142", "#D53E4F", "#F46D43", 
-                                  "#FDAE61", "#ABDDA4", "#66C2A5", 
-                                  "#3288BD", "#5E4FA2", "darkblue"))(length(levels(df_merge$Cluster)) -1)
-colClusters <- c(colClusters, "#FFFFFF")
+# colClusters <- colorRampPalette(c("#9E0142", "#D53E4F", "#F46D43", 
+#                                   "#FDAE61", "#ABDDA4", "#66C2A5", 
+#                                   "#3288BD", "#5E4FA2", "darkblue"))(length(levels(df_merge$Cluster)) -1)
+# colClusters <- c(colClusters, "#FFFFFF")
+
+colClusters <- c("#9E0142", "#C62D4B", "#E35349",
+                 "#F57848","#FCA85E", "#C8CB8B",
+                 "#91D3A4", "#8AB65A", "#3B92B8", 
+                 "#4A68AE", "#5E4FA2", "#CC23CC",
+                 "#F42570", "#FFFFFF")
+
+# colClusters[8] <- rgb(138/255, 182/255, 90/255)
+# colClusters[11] <- rgb(94/255, 79/255, 162/255)
+# colClusters[12] <- rgb(204/255, 35/255, 204/255)
+# colClusters[13] <- rgb(244/255, 37/255, 112/255)
+
+
 names(colClusters) <- levels(df_reg$Cluster)
 delim <- ";"
 var_choices <- c("psiteID", "GeneID", "Gene", "Accession",  "Cluster", "Residue",
                  "Keywords", "Protein families", "Kinase-substrate",
                  "GO", "GO(biological process)", "GO(molecular function)", "GO(cellular component)", "Sequence")
+
+var_display <- c(var_choices, c("pAnova",
+                                "pAnova(sci)",
+                                "BestFC", 
+                                "BestTimePoint", 
+                                "TestsPassed(%)"))
 
 ########################################################################################################
 #User interface ----
@@ -155,7 +178,7 @@ body2<- dashboardBody(
            height = NULL,
            selectizeInput("col_data_selection",
                           label = "Select columns to display",
-                          choices = var_choices,
+                          choices = var_display,
                           selected = c("GeneID", "Gene", "Cluster"),
                           multiple = TRUE),
            div(style = 'overflow-x: scroll', DT::dataTableOutput("selection"))
@@ -192,8 +215,8 @@ body2<- dashboardBody(
            tabPanel("Info", 
                     selectizeInput("col_selected",
                                    label = "Select columns to display",
-                                   choices = var_choices,
-                                   selected = c("GeneID", "Keywords", "Protein families"),
+                                   choices = var_display,
+                                   selected = c("GeneID", "pAnova(sci)", "BestFC"),
                                    multiple = TRUE),
                     div(style = 'overflow-x: scroll', DT::dataTableOutput("data_focus"))
            )
@@ -310,6 +333,8 @@ server <- function(session, input, output) {
   # Reactive functions
   {
 
+   
+    
     df_melt_selected <- reactive({
       df <- df_melt1
       df <- df[(df$psiteID %in% react_val$psiteID_selected) | (df$Cluster != "not regulated"), ]
@@ -649,10 +674,13 @@ server <- function(session, input, output) {
         need( length(react_val$psiteID_focus)>0, "No phospho-site selected" )
       )
       
+      df <- react_val$data_merge[match(react_val$psiteID_focus, react_val$data_merge$psiteID), input$col_selected]
+      num_cols <- colnames(df)[sapply(df, is.numeric)]
+      
       DT::datatable(
-        react_val$data_merge[match(react_val$psiteID_focus, react_val$data_merge$psiteID), input$col_selected],
+        df,
         rownames = FALSE
-      )
+      ) %>% DT::formatRound(columns = num_cols, digits = 3)
     })
     
     output$selection <- DT::renderDataTable({
@@ -660,12 +688,15 @@ server <- function(session, input, output) {
       validate(
         need( length(input$col_data_selection)>0, "Please select data columns to display" )
       )
-
+      
+      df <- data_selection()[ , input$col_data_selection]
+      num_cols <- colnames(df)[sapply(df, is.numeric)]
+      
       DT::datatable(
-        data_selection()[ , input$col_data_selection],
+        df,
         selection = list(mode = "single", target = "row"),
         rownames = FALSE
-      )
+      ) %>% DT::formatRound(columns = num_cols, digits = 3)
 
     })
     
@@ -807,9 +838,12 @@ server <- function(session, input, output) {
         xlabel <- "time (s)"
       }
       
+      df2 <- react_val$data_merge
+      
       p <- ggplot(df, aes(x=time, y=value, color = replicate)) + 
         theme(text = element_text(size = 14)) +
-        ggtitle(react_val$data_merge$GeneID[ match(react_val$psiteID_focus, react_val$data_merge$psiteID) ])
+        ggtitle(label =df2$GeneID[ match(react_val$psiteID_focus, df2$psiteID) ],
+                subtitle  = paste("( pAnova = ", df2[["pAnova(sci)"]][ match(react_val$psiteID_focus, df2$psiteID) ], ")"))
         
       if(input$boxplot_focus){
         p <- p + geom_boxplot(mapping=aes(x=time, y=value), inherit.aes = FALSE, color = rgb(0.75, 0.75, 0.75) )
