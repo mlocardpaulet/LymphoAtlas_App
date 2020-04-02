@@ -17,7 +17,12 @@ names(df_intensity) <- gsub("_R5_", "_D_", names(df_intensity))
 idx_match <- match(Tsite$psiteID, df_intensity$psiteID)
 df_merge <- cbind(Tsite[, -which(names(Tsite)=="GeneID")], 
                   df_intensity[idx_match, 
-                               c(which(names(df_intensity) == "GeneID"), 
+                               c(which(names(df_intensity) %in% c("GeneID", 
+                                                                  "pAnova", 
+                                                                  "BestFC", 
+                                                                  "BestTimePoint", 
+                                                                  "ProportioPassStat", 
+                                                                  "WarningProteinFC")), 
                                  grep("^Mean Intensity_MV", names(df_intensity)),
                                  grep("^Log2 Norm", names(df_intensity)))])
 

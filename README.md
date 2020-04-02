@@ -6,7 +6,8 @@ A *Shiny* application to visualise phospho-kinetics upon TCR activation.
 
 ## Contributors
 
-[Marie Locard-Paulet](https://github.com/mlocardpaulet) and [Guillaume Voisinne](https://github.com/VoisinneG/).
+Marie Locard-Paulet <a href="https://github.com/mlocardpaulet"> <img src="./www/GitHub-Mark-32px.png" width="16px"> </a> and Guillaume Voisinne <a href="https://github.com/voisinneg"> <img src="./www/GitHub-Mark-32px.png" width="16px"> </a>
+
 
 ## Copyright CNRS 2019
 
